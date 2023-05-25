@@ -193,15 +193,12 @@ This method is *unsafe* because it assumes without checking that `dst` and all
 @inline function unsafe_map!(f::Function,
                              dst::AbstractArray,
                              x::AbstractArray)
-    map!(f, dst, x)
-    nothing
-end
-
-@inline function unsafe_map!(f::Function,
-                             dst::StridedArray,
-                             x::StridedArray)
-    @inbounds @simd for i in eachindex(dst, x)
-        dst[i] = f(x[i])
+    if dst isa StridedArray && x isa StridedArray
+        @inbounds @simd for i in eachindex(dst, x)
+            dst[i] = f(x[i])
+        end
+    else
+        map!(f, dst, x)
     end
     nothing
 end
@@ -210,16 +207,12 @@ end
                              dst::AbstractArray,
                              x::AbstractArray,
                              y::AbstractArray)
-    map!(f, dst, x, y)
-    nothing
-end
-
-@inline function unsafe_map!(f::Function,
-                             dst::StridedArray,
-                             x::StridedArray,
-                             y::StridedArray)
-    @inbounds @simd for i in eachindex(dst, x, y)
-        dst[i] = f(x[i], y[i])
+    if dst isa StridedArray && x isa StridedArray && y isa StridedArray
+        @inbounds @simd for i in eachindex(dst, x, y)
+            dst[i] = f(x[i], y[i])
+        end
+    else
+        map!(f, dst, x, y)
     end
     nothing
 end
