@@ -132,13 +132,31 @@ overwrites destination `dst` with the linear combination `α⋅x + β⋅y` and
 returns `dst`.
 
 """
-@inline function combine!(dst::AbstractArray{T,N},
-                          α::Real, x::AbstractArray{T,N},
-                          β::Real, y::AbstractArray{T,N}) where {T,N}
+function combine!(dst::AbstractArray{T,N},
+                  α::Real, x::AbstractArray{T,N},
+                  β::Real, y::AbstractArray{T,N}) where {T,N}
     @assert_same_indices dst x y
     unsafe_combine!(dst, α, x, β, y)
     return dst
 end
+
+# The following structure is a trick to make our own closure object to
+# implement the `combine!` operation. This is needed to avoid *lots* of
+# allocations and reach ultimate execution speed.
+struct Combine{F,A,B} <: Function
+    f::F
+    α::A
+    β::B
+end
+@inline (op::Combine)(x, y) = op.f(op.α, x, op.β, y)
+@inline combine_x(α, x, β, y) = x
+@inline combine_y(α, x, β, y) = y
+@inline combine_ax(α, x, β, y) = α*x
+@inline combine_by(α, x, β, y) = β*y
+@inline combine_xpy(α, x, β, y) = x + y
+@inline combine_xmy(α, x, β, y) = x - y
+@inline combine_xpby(α, x, β, y) = x + β*y
+@inline combine_axpby(α, x, β, y) = α*x + β*y
 
 function unsafe_combine!(dst::AbstractArray,
                          α::Real, x::AbstractArray,
@@ -149,21 +167,22 @@ function unsafe_combine!(dst::AbstractArray,
         unsafe_scale!(dst, β, y)
     elseif isone(α)
         if isone(β)
-            #dst .= x .+ y
+            # dst .= x .+ y
             unsafe_map!(+, dst, x, y)
         elseif β == -one(β)
-            #dst .= x .- y
+            # dst .= x .- y
             unsafe_map!(-, dst, x, y)
         else
             # dst .= x .+ β.*y
-            β = convert_multiplier(β, y)
-            unsafe_map!((xᵢ, yᵢ) -> xᵢ + β*yᵢ, dst, x, y)
+            unsafe_map!(
+                Combine(combine_xpby, 1, convert_multiplier(β, y)),
+                dst, x, y)
         end
     else
-        #dst .= α.*x .+ β.*y
-        α = convert_multiplier(α, x)
-        β = convert_multiplier(β, y)
-        unsafe_map!((xᵢ, yᵢ) -> α*xᵢ + β*yᵢ, dst, x, y)
+        # dst .= α.*x .+ β.*y
+        unsafe_map!(
+            Combine(combine_axpby, convert_multiplier(α, x), convert_multiplier(β, y)),
+            dst, x, y)
     end
     nothing
 end
