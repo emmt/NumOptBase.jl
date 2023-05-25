@@ -60,15 +60,15 @@ overwrites destination `dst` with `α⋅x` and returns `dst`. If `iszero(α)`
 holds, zero-fill `dst` whatever the values in `x`.
 
 """
-function scale!(dst::AbstractArray{T,N}, α::Real, x::AbstractArray{T,N}) where {T,N}
+function scale!(dst::AbstractArray{T,N},
+                α::Real, x::AbstractArray{T,N}) where {T,N}
     @assert_same_indices dst x
     unsafe_scale!(dst, α, x)
     return dst
 end
 
 function unsafe_scale!(dst::AbstractArray,
-                       α::Real,
-                       x::AbstractArray)
+                       α::Real, x::AbstractArray)
     if iszero(α)
         fill!(dst, zero(eltype(dst)))
     elseif isone(α)
@@ -246,38 +246,36 @@ end
 
 # Inner product of variables as assumed for numerical optimization, that is
 # considering complexes as pairs of reals.
-inner(w::Real, x::Real, y::Real) = w*x*y
 inner(x::Real, y::Real) = x*y
 inner(x::Complex, y::Complex) = real(x)*real(y) + imag(x)*imag(y)
 
-function unsafe_inner(x::StridedArray,
-                      y::StridedArray)
-    acc = inner(zero(eltype(x)), zero(eltype(y)))
-    @inbounds @simd for i in eachindex(x, y)
-        acc += inner(x[i], y[i])
-    end
-    return acc
-end
-
 function unsafe_inner(x::AbstractArray,
                       y::AbstractArray)
-    return mapreduce(inner, +, x, y)
+    if x isa StridedArray && y isa StridedArray
+        acc = inner(zero(eltype(x)), zero(eltype(y)))
+        @inbounds @simd for i in eachindex(x, y)
+            acc += inner(x[i], y[i])
+        end
+        return acc
+    else
+        return mapreduce(inner, +, x, y)
+    end
 end
 
-function unsafe_inner(w::StridedArray,
-                      x::StridedArray,
-                      y::StridedArray)
-    acc = inner(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))
-    @inbounds @simd for i in eachindex(w, x, y)
-        acc += inner(w[i], x[i], y[i])
-    end
-    return acc
-end
+inner(w::Real, x::Real, y::Real) = w*x*y
 
 function unsafe_inner(w::AbstractArray,
                       x::AbstractArray,
                       y::AbstractArray)
-    return mapreduce(inner, +, w, x, y)
+     if w isa StridedArray && x isa StridedArray && y isa StridedArray
+         acc = inner(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))
+         @inbounds @simd for i in eachindex(w, x, y)
+             acc += inner(w[i], x[i], y[i])
+         end
+         return acc
+     else
+         return mapreduce(inner, +, w, x, y)
+     end
 end
 
 """
@@ -287,13 +285,16 @@ yields the ℓ₁ norm of `x` considered as a *vector* (i.e; as if `x` has been
 flattened).
 
 """
-norm1(x::AbstractArray) = mapreduce(abs, +, x)
-function norm1(x::StridedArray)
-    acc = abs(zero(eltype(x)))
-    @inbounds @simd for i in eachindex(x)
-        acc += abs(x[i])
+function norm1(x::AbstractArray)
+    if x isa StridedArray
+        acc = abs(zero(eltype(x)))
+        @inbounds @simd for i in eachindex(x)
+            acc += abs(x[i])
+        end
+        return acc
+    else
+        return mapreduce(abs, +, x)
     end
-    return acc
 end
 
 """
@@ -303,16 +304,18 @@ yields the Euclidean norm of `x` considered as a *vector* (i.e; as if `x` has
 been flattened).
 
 """
-function norm2(x::StridedArray)
-    acc = abs2(zero(eltype(x)))
-    @inbounds @simd for i in eachindex(x)
-        acc += abs2(x[i])
+function norm2(x::AbstractArray)
+    if x isa StridedArray
+        acc = abs2(zero(eltype(x)))
+        @inbounds @simd for i in eachindex(x)
+            acc += abs2(x[i])
+        end
+        return sqrt(acc)
+    else
+        v = flatten(x)
+        return sqrt(v'*v)
     end
-    return sqrt(acc)
 end
-
-norm2(x::AbstractVector) = sqrt(x'*x)
-norm2(x::AbstractArray) = norm2(flatten(x))
 
 """
     NumOptBase.norminf(x)
@@ -321,14 +324,17 @@ yields the infinite norm of `x` considered as a *vector* (i.e; as if `x` has
 been flattened).
 
 """
-norminf(x::AbstractArray) = reduce(max_abs, x; init = abs(zero(eltype(x))))
-function norminf(x::StridedArray)
-    acc = abs(zero(eltype(x)))
-    # FIXME: @turbo does not work here
-    @inbounds @simd for i in eachindex(x)
-        acc = max_abs(acc, x[i])
+function norminf(x::AbstractArray)
+    if x isa StridedArray
+        r = abs(zero(eltype(x)))
+        @inbounds @simd for i in eachindex(x)
+            a = abs(x[i])
+            r = a > r ? a : r
+        end
+        return r
+    else
+        return reduce(max_abs, x; init = abs(zero(eltype(x))))
     end
-    return acc
 end
 
 max_abs(x, y) = (abs_y = abs(y)) > x ? abs_y : x
