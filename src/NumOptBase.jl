@@ -12,7 +12,7 @@ using Unitless
     @assert_same_indices A B ...
 
 throws a `DimensionMismatch` exception if arrays `A`, `B`, etc. do not have the
-same indices.
+same axes.
 
 """
 macro assert_same_indices(syms::Symbol...)
@@ -21,7 +21,7 @@ end
 
 function _assert_same_indices(syms::Union{Tuple{Vararg{Symbol}},AbstractVector{Symbol}})
     if (n = length(syms)) < 2
-        return :nothing
+        return :(Base.nothing)
     else
         buf = IOBuffer()
         write(buf, "arrays")
@@ -37,8 +37,8 @@ function _assert_same_indices(syms::Union{Tuple{Vararg{Symbol}},AbstractVector{S
             sep = i == 1 ? " `" : i < n ? ", `" : n == 2 ? " and `" : ", and `"
             write(buf, sep, sym, '`')
         end
-        write(buf, " must have the same indices")
-        return :($ex || Base.throw(Base.DimensionMismatch($(String(take!(buf))))))
+        write(buf, " must have the same axes")
+        return :($ex ? Base.nothing : Base.throw(Base.DimensionMismatch($(String(take!(buf))))))
     end
 end
 
