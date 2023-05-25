@@ -77,12 +77,12 @@ Base.similar(A::MyArray, ::Type{T}, dims::Dims) where {T} =
     MyArray(similar(parent(A), T, dims))
 
 T′s = (Float32, Float64)
-F′s = (StridedArray, AbstractArray)
+F′s = (:StridedArray, :AbstractArray)
 α′s = (0, 1, -1, 2.1)
 β′s = (0, 1, -1, -1.7)
 dims = (3,4,5)
 @testset "NumOptBase T=$T, $F" for F ∈ F′s, T ∈ T′s
-    wrapper = F === StridedArray ? identity : MyArray
+    wrapper = F === :StridedArray ? identity : MyArray
     w = wrapper(rand(T, dims))
     x = wrapper(rand(T, dims))
     y = wrapper(rand(T, dims))

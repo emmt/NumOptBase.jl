@@ -8,7 +8,7 @@ Unitless = "c904d999-9673-4878-a3dd-e3ef1851788a"
 
 [compat]
 Unitless = "2"
-julia = "1"
+julia = "1.2"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
