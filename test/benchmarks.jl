@@ -6,8 +6,9 @@ export
     vmultiply!, vscale!, vupdate!, vcombine!
 
 using BenchmarkTools
+using ArrayTools: @assert_same_axes
 using NumOptBase
-using NumOptBase: @assert_same_indices, convert_multiplier
+using NumOptBase: convert_multiplier
 using LoopVectorization
 using MayOptimize
 using Unitless
@@ -60,7 +61,7 @@ for opt in (:debug, :inbounds, :simd, :turbo)
     @eval begin
         function $(Symbol(:vdot_,opt))(x::AbstractArray{T,N},
                                        y::AbstractArray{T,N}) where {T<:Real,N}
-            @assert_same_indices x y
+            @assert_same_axes x y
             acc = zero(T)*zero(T)
             @vectorize $opt for i in eachindex(x, y)
                 acc += x[i]*y[i]
@@ -70,7 +71,7 @@ for opt in (:debug, :inbounds, :simd, :turbo)
         function $(Symbol(:vdot_,opt))(w::AbstractArray{T,N},
                                        x::AbstractArray{T,N},
                                        y::AbstractArray{T,N}) where {T<:Real,N}
-            @assert_same_indices w x y
+            @assert_same_axes w x y
             acc = zero(T)*zero(T)*zero(T)
             @vectorize $opt for i in eachindex(w, x, y)
                 acc += w[i]*x[i]*y[i]
@@ -83,7 +84,7 @@ end
 function vdot(::Type{L},
               x::AbstractArray{T,N},
               y::AbstractArray{T,N}) where {L<:OptimLevel,T<:Real,N}
-    @assert_same_indices x y
+    @assert_same_axes x y
     acc = zero(T)*zero(T)
     @vect L for i in eachindex(x, y)
         acc += x[i]*y[i]
@@ -95,7 +96,7 @@ function vdot(::Type{L},
               w::AbstractArray{T,N},
               x::AbstractArray{T,N},
               y::AbstractArray{T,N}) where {L<:OptimLevel,T<:Real,N}
-    @assert_same_indices w x y
+    @assert_same_axes w x y
     acc = zero(T)*zero(T)*zero(T)
     @vect L for i in eachindex(w, x, y)
         acc += w[i]*x[i]*y[i]
@@ -171,7 +172,7 @@ vscale!(dst::AbstractArray, α::Real, x::AbstractArray) = NumOptBase.scale!(dst,
 function vscale!(::Type{L},
                  dst::AbstractArray{T,N},
                  α::Real, x::AbstractArray{T,N}) where {L<:OptimLevel,T,N}
-    @assert_same_indices dst x
+    @assert_same_axes dst x
     α = convert_multiplier(α, x)
     @vect L for i in eachindex(dst, x)
         dst[i] = α*x[i]
@@ -184,7 +185,7 @@ vupdate!(dst::AbstractArray, α::Real, x::AbstractArray) = NumOptBase.update!(ds
 function vupdate!(::Type{L},
                   dst::AbstractArray{T,N},
                   α::Real, x::AbstractArray{T,N}) where {L<:OptimLevel,T,N}
-    @assert_same_indices dst x
+    @assert_same_axes dst x
     α = convert_multiplier(α, x)
     @vect L for i in eachindex(dst, x)
         dst[i] += α*x[i]
@@ -198,7 +199,7 @@ function vmultiply!(::Type{L},
                     dst::AbstractArray{T,N},
                     x::AbstractArray{T,N},
                     y::AbstractArray{T,N}) where {L<:OptimLevel,T,N}
-    @assert_same_indices dst x y
+    @assert_same_axes dst x y
     @vect L for i in eachindex(dst, x, y)
         dst[i] = x[i]*y[i]
     end
@@ -212,7 +213,7 @@ function vcombine!(::Type{L},
                     dst::AbstractArray{T,N},
                     α::Real, x::AbstractArray{T,N},
                     β::Real, y::AbstractArray{T,N}) where {L<:OptimLevel,T,N}
-    @assert_same_indices dst x y
+    @assert_same_axes dst x y
     α = convert_multiplier(α, x)
     β = convert_multiplier(β, y)
     @vect L for i in eachindex(dst, x, y)
@@ -225,7 +226,7 @@ for opt in (:debug, :inbounds, :simd, :turbo)
 
     @eval function $(Symbol(:vscale_,opt,:(!)))(dst::AbstractArray{T,N},
                                                 α::Real, x::AbstractArray{T,N}) where {T,N}
-        @assert_same_indices dst x
+        @assert_same_axes dst x
         α = convert_multiplier(α, x)
         @vectorize $opt for i in eachindex(dst, x)
             dst[i] = α*x[i]
@@ -235,7 +236,7 @@ for opt in (:debug, :inbounds, :simd, :turbo)
 
     @eval function $(Symbol(:vupdate_,opt,:(!)))(dst::AbstractArray{T,N},
                                                  α::Real, x::AbstractArray{T,N}) where {T,N}
-        @assert_same_indices dst x
+        @assert_same_axes dst x
         α = convert_multiplier(α, x)
         @vectorize $opt for i in eachindex(dst, x)
             dst[i] += α*x[i]
@@ -246,7 +247,7 @@ for opt in (:debug, :inbounds, :simd, :turbo)
     @eval function $(Symbol(:vmultiply_,opt,:(!)))(dst::AbstractArray{T,N},
                                                    x::AbstractArray{T,N},
                                                    y::AbstractArray{T,N}) where {T,N}
-        @assert_same_indices dst x y
+        @assert_same_axes dst x y
         @vectorize $opt for i in eachindex(dst, x, y)
             dst[i] = x[i]*y[i]
         end
@@ -256,7 +257,7 @@ for opt in (:debug, :inbounds, :simd, :turbo)
     @eval function $(Symbol(:vcombine_,opt,:(!)))(dst::AbstractArray{T,N},
                                                   α::Real, x::AbstractArray{T,N},
                                                   β::Real, y::AbstractArray{T,N}) where {T,N}
-        @assert_same_indices dst x y
+        @assert_same_axes dst x y
         α = convert_multiplier(α, x)
         β = convert_multiplier(β, y)
         @vectorize $opt for i in eachindex(dst, x, y)

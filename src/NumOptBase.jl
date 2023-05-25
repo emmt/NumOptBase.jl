@@ -6,41 +6,8 @@ optimization methods.
 """
 module NumOptBase
 
-using Unitless
-
-"""
-    @assert_same_indices A B ...
-
-throws a `DimensionMismatch` exception if arrays `A`, `B`, etc. do not have the
-same axes.
-
-"""
-macro assert_same_indices(syms::Symbol...)
-    esc(_assert_same_indices(syms))
-end
-
-function _assert_same_indices(syms::Union{Tuple{Vararg{Symbol}},AbstractVector{Symbol}})
-    if (n = length(syms)) < 2
-        return :(Base.nothing)
-    else
-        buf = IOBuffer()
-        write(buf, "arrays")
-        ex = Expr(:comparison)
-        resize!(ex.args, 2*n - 1)
-        i = 0
-        for sym in syms
-            if i > 0
-                ex.args[2i] = :(==)
-            end
-            ex.args[2i+1] = :(Base.axes($sym))
-            i += 1
-            sep = i == 1 ? " `" : i < n ? ", `" : n == 2 ? " and `" : ", and `"
-            write(buf, sep, sym, '`')
-        end
-        write(buf, " must have the same axes")
-        return :($ex ? Base.nothing : Base.throw(Base.DimensionMismatch($(String(take!(buf))))))
-    end
-end
+using ArrayTools: @assert_same_axes
+using Unitless: floating_point_type
 
 """
     NumOptBase.apply!(dst, f, args...) -> dst
@@ -62,7 +29,7 @@ holds, zero-fill `dst` whatever the values in `x`.
 """
 function scale!(dst::AbstractArray{T,N},
                 α::Real, x::AbstractArray{T,N}) where {T,N}
-    @assert_same_indices dst x
+    @assert_same_axes dst x
     unsafe_scale!(dst, α, x)
     return dst
 end
@@ -91,7 +58,7 @@ for `NumOptBase.combine!(x,1,x,β,y)`.
 """
 function update!(dst::AbstractArray{T,N},
                  α::Real, x::AbstractArray{T,N}) where {T,N}
-    @assert_same_indices dst x
+    @assert_same_axes dst x
     unsafe_update!(dst, α, x)
     return dst
 end
@@ -120,7 +87,7 @@ product) of `x` by `y` and returns `dst`.
 function multiply!(dst::AbstractArray{T,N},
                    x::AbstractArray{T,N},
                    y::AbstractArray{T,N}) where {T,N}
-    @assert_same_indices dst x y
+    @assert_same_axes dst x y
     unsafe_map!(*, dst, x, y)
     return dst
 end
@@ -135,7 +102,7 @@ returns `dst`.
 function combine!(dst::AbstractArray{T,N},
                   α::Real, x::AbstractArray{T,N},
                   β::Real, y::AbstractArray{T,N}) where {T,N}
-    @assert_same_indices dst x y
+    @assert_same_axes dst x y
     unsafe_combine!(dst, α, x, β, y)
     return dst
 end
@@ -245,14 +212,14 @@ optimization methods.
 """
 function inner(x::AbstractArray{<:Number,N},
                y::AbstractArray{<:Number,N}) where {N}
-    @assert_same_indices x y
+    @assert_same_axes x y
     return unsafe_inner(x, y)
 end
 
 function inner(w::AbstractArray{<:Real,N},
                x::AbstractArray{<:Real,N},
                y::AbstractArray{<:Number,N}) where {N}
-    @assert_same_indices w x y
+    @assert_same_axes w x y
     return unsafe_inner(w, x, y)
 end
 
