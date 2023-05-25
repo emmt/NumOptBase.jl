@@ -1,4 +1,4 @@
-# NumOptBase: basic operations on variables for numerical optimization
+# Basic operations on variables for numerical optimization in Julia
 
 [![Build Status](https://github.com/emmt/NumOptBase.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/emmt/NumOptBase.jl/actions/workflows/CI.yml?query=branch%3Amain) [![Build Status](https://ci.appveyor.com/api/projects/status/github/emmt/NumOptBase.jl?svg=true)](https://ci.appveyor.com/project/emmt/NumOptBase-jl) [![Coverage](https://codecov.io/gh/emmt/NumOptBase.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/emmt/NumOptBase.jl)
 
@@ -22,30 +22,30 @@ numerical optimization methods to their own variables.
 `NumOptBase.norm1(x)`, `NumOptBase.norm2(x)`, and `NumOptBase.norminf(x)`
 respectively yield the ℓ₁, Euclidean, and infinite norm of the variables `x`.
 They are similar to the norms in `LinearAlgebra` except that they treat `x` as
-if it is has been flattened into a vector.
+if it is has been flattened into a vector of reals.
 
 
 ### Inner product
 
-`NumOptBase.inner(x, y)` yields the inner product of the variables `x` and `y`
-computed as expected by numerical optimization methods; that is as if `x` and
-`y` are real-valued vectors and treating complex values as pairs of reals in
-that respect. In other words, if `x` and `y` are real-valued arrays, their
-inner product is given by:
+`NumOptBase.inner(x, y)` yields the inner product (also known as *scalar
+product*) of the variables `x` and `y` computed as expected by numerical
+optimization methods; that is as if `x` and `y` are real-valued vectors and
+treating complex values as pairs of reals in that respect. In other words, if
+`x` and `y` are real-valued arrays, their inner product is given by:
 
-    Σᵢ xᵢ*yᵢ
+    Σᵢ xᵢ⋅yᵢ
 
 otherwise, if `x` and `y` are both complex-valued arrays, their inner product
 is given by:
 
-    Σᵢ (real(xᵢ)*real(yᵢ) + imag(xᵢ)*imag(yᵢ))
+    Σᵢ (real(xᵢ)⋅real(yᵢ) + imag(xᵢ)⋅imag(yᵢ))
 
 In the above pseudo-codes, index `i` runs over all indices of `x` and `y` which
 may be multi-dimensional arrays but must have the same indices.
 
 `NumOptBase.inner(w, x, y)` yields
 
-    Σᵢ wᵢ*xᵢ*yᵢ
+    Σᵢ wᵢ⋅xᵢ⋅yᵢ
 
 that is the *triple inner product* of the variables `w`, `x`, and `y` which
 must all be real-valued arrays.
@@ -75,7 +75,7 @@ be variables of the same size.
 It is assumed that a few standard Julia methods are implemented in an efficient
 way for the type of array storing the variables:
 
-- `similar(x) -> y` to create a new set of variables `y` like `x`;
+- `similar(x) -> y` to create a new array of variables `y` like `x`;
 - `copyto!(dst, src) -> dst` to copy source variables `src` into destination
   variables `dst`;
 - `fill!(x, α) -> x` to set all variables in `x` to the value `α`.
