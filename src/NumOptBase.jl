@@ -8,6 +8,37 @@ module NumOptBase
 
 using ArrayTools: @assert_same_axes
 using Unitless: floating_point_type
+using LinearAlgebra
+
+"""
+    NumOptBase.Identity()
+
+yields a singleton object representing the identity mapping for the
+[`NumOptBase.apply!`](@ref) method.
+
+"""
+struct Identity end
+
+"""
+    NumOptBase.Id
+
+is the singleton object representing the identity mapping for the
+[`NumOptBase.apply!`](@ref) method.
+
+"""
+const Id = Identity()
+
+"""
+    NumOptBase.Diag(A)
+
+yields an object behaving as a diagonal linear mapping for the
+[`NumOptBase.apply!`](@ref) method.
+
+"""
+struct Diag{T,N,A<:AbstractArray{T,N}}
+    diag::A
+end
+LinearAlgebra.diag(A::Diag) = A.diag
 
 """
     NumOptBase.apply!(dst, f, args...) -> dst
@@ -15,10 +46,47 @@ using Unitless: floating_point_type
 overwrites destination `dst` with the result of applying the mapping `f` to
 arguments `args...`.
 
-This method shall be extended to specific argument types.
+As implemented in `NumOptBase`, this method only handles a few types of
+mappings:
+
+- if `f` is an array, a generalized matrix-vector multiplication is applied;
+
+- if `f` is [`NumOptBase.Identity()`](@ref), the identity mapping is applied;
+
+- if `f` is an instance of [`NumOptBase.Diag`](@ref), an element_wsie
+  multiplication by `diag(f)` is applied.
+
+This method shall be extended to specific argument types to handle other cases.
 
 """
-apply!
+function apply!(y::AbstractArray{T,Ny},
+                A::AbstractArray{T,Na},
+                x::AbstractArray{T,Nx}) where {T<:Real,Ny,Na,Nx}
+    Na == Nx + Ny || throw(DimensionMismatch("incompatible number of dimensions"))
+    inds = axes(A)
+    (Ny ≤ Na && axes(y) == inds[1:Ny]) || throw(DimensionMismatch(
+        "axes of output array must be the same as the leading axes of the \"matrix\""))
+    (Nx ≤ Na && axes(x) == inds[Na-Nx+1:Na]) || throw(DimensionMismatch(
+        "axes of input array must be the same as the trailing axes of the \"matrix\""))
+    @assert axes(x) == axes(A)[Ny+1:Na]
+    if Ny == 1 && Nx == 1
+        mul!(y, A, x)
+    else
+        mul!(flatten(y), reshape(A, (length(y), length(x))), flatten(x))
+    end
+    return y
+end
+
+function apply!(y::AbstractArray{T,N}, ::Identity, x::AbstractArray{T,N}) where {T,N}
+    if y !== x
+        @assert_same_axes x y
+        copyto!(y, x)
+    end
+    return y
+end
+
+apply!(y::AbstractArray{T,N}, A::Diag{T,N}, x::AbstractArray{T,N}) where {T,N} =
+    multiply!(y, diag(A), x)
 
 """
     NumOptBase.scale!(dst, α, x) -> dst
