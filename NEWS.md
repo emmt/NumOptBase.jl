@@ -2,6 +2,8 @@
 
 # Version 0.1.3
 
+- Extend  `LoopVectorization` to more other basic operations.
+
 - Avoid using `LoopVectorization` if the `@turbo` macro is not defined (i.e.
   for Julia < 1.5 or `LoopVectorization` < 0.12.22).
 
