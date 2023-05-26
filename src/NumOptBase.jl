@@ -10,6 +10,11 @@ using ArrayTools: @assert_same_axes
 using Unitless: floating_point_type
 using LinearAlgebra
 
+if !isdefined(Base, :get_extension)
+    using Requires
+end
+
+
 """
     NumOptBase.Identity()
 
@@ -388,5 +393,12 @@ max_abs(x, y) = (abs_y = abs(y)) > x ? abs_y : x
 
 flatten(x::AbstractVector) = x
 flatten(x::AbstractArray) = reshape(x, length(x))
+
+function __init__()
+    @static if !isdefined(Base, :get_extension)
+        @require LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890" include(
+            "../ext/NumOptBaseLoopVectorizationExt.jl")
+    end
+end
 
 end # module

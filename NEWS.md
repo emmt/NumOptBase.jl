@@ -1,5 +1,12 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.2
+
+- Add `LoopVectorization` to speed up some operations as a package extension
+  (for Julia ≥ 1.9) or using
+  [`Requires`](https://github.com/JuliaPackaging/Requires.jl) (for Julia <
+  1.9).
+
 # Version 0.1.1
 
 - Add a few cases that can be handled by `apply!`: the identity
