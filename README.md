@@ -1,6 +1,8 @@
 # Basic operations on variables for numerical optimization in Julia
 
-[![Build Status](https://github.com/emmt/NumOptBase.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/emmt/NumOptBase.jl/actions/workflows/CI.yml?query=branch%3Amain) [![Build Status](https://ci.appveyor.com/api/projects/status/github/emmt/NumOptBase.jl?svg=true)](https://ci.appveyor.com/project/emmt/NumOptBase-jl) [![Coverage](https://codecov.io/gh/emmt/NumOptBase.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/emmt/NumOptBase.jl)
+[![Build Status](https://github.com/emmt/NumOptBase.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/emmt/NumOptBase.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://ci.appveyor.com/api/projects/status/github/emmt/NumOptBase.jl?svg=true)](https://ci.appveyor.com/project/emmt/NumOptBase-jl)
+[![Coverage](https://codecov.io/gh/emmt/NumOptBase.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/emmt/NumOptBase.jl)
 
 `NumOptBase` implements efficient basic operations on variables for
 multi-variate numerical optimization methods. It is similar to the `BLAS`
