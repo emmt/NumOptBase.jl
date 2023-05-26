@@ -46,6 +46,11 @@ The methods of `NumOptBase` are considered as low level methods and are not
 automatically exported when `using NumOptBase`. This is also to avoid name
 collision with other packages like `LinearAlgebra`.
 
+Except `similar` which may be called to create a new array of variables, all
+other methods either require no additional significant storage or store their
+result in an output array provided by the caller. In that way, the storage
+requirements can be strictly controlled.
+
 
 ### Norms
 
