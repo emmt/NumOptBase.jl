@@ -5,8 +5,39 @@
 [![Coverage](https://codecov.io/gh/emmt/NumOptBase.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/emmt/NumOptBase.jl)
 
 `NumOptBase` implements efficient basic operations on variables for
-multi-variate numerical optimization methods. It is similar to the `BLAS`
-library for linear algebra methods.
+multi-variate numerical optimization methods in [Julia](https://julialang.org).
+It is similar to the `BLAS` library for linear algebra methods.
+
+By leveraging the methods provided by `NumOptBase`, numerical optimization
+methods can be written in a general way that is agnostic to the specific type
+of arrays used to store the variables of the problem. Package
+[`ConjugateGradient`](https://github.com/emmt/ConjugateGradient.jl) is such an
+example. The methods of `NumOptBase` are thus intended to be extended by other
+packages to apply numerical optimization methods to their own variables (that
+is their own array types). For instance, dealing with
+[`GPUArrays`](https://github.com/JuliaGPU/GPUArrays.jl) in `NumOptBase` is
+currently under development.
+
+
+## Variables in optimization methods
+
+An optimization problem typically writes:
+
+    minₓ f(x) s.t. x ∈ Ω
+
+where `f: Ω → ℝ` is the objective function, `x` are the variables, and `Ω ⊆ ℝⁿ`
+is the set of acceptable solution with `n` the dimension of the problem.
+
+It is assumed by this package that the variables `x` are stored in Julia
+arrays. Depending on the problem, these arrays may be multidimensional but are
+treated as real-valued *vectors* by the numerical optimization methods. For
+efficiency, all entries of the arrays storing variables must have the same
+floating-point type.
+
+For now, quantities with units (such as those provided by the
+[`Unitful`](https://github.com/PainterQubits/Unitful.jl) package) are not
+supported. If your variables have units, you may consider using `reinterpret`
+to remove units before calling the numerical optimization routines.
 
 
 ## Operations on variables
@@ -14,9 +45,6 @@ library for linear algebra methods.
 The methods of `NumOptBase` are considered as low level methods and are not
 automatically exported when `using NumOptBase`. This is also to avoid name
 collision with other packages like `LinearAlgebra`.
-
-The methods of `NumOptBase` may be extended by other packages to apply
-numerical optimization methods to their own variables.
 
 
 ### Norms
@@ -70,6 +98,32 @@ multiplication (also known as *Hadamard product*) of `x` by `y` and returns
 `NumOptBase.combine!(dst, α, x, β, y)` overwrites `dst` with `α⋅x + β⋅y` and
 returns `dst`. `α` and `β` must be real scalars while `dst`, `x`, and `y` must
 be variables of the same size.
+
+
+### Applying mappings
+
+The method:
+
+``` julia
+NumOptBase.apply!(dst, f, args...) -> dst
+```
+
+overwrites the destination `dst` variables with the result of applying the
+mapping `f` to arguments `args...`.
+
+As of now, `NumOptBase.apply!` only handles a few types of mappings:
+
+- If `f` is an array, a generalized matrix-vector multiplication is applied to
+  `args...` which must be a single array of variables.
+
+- If `f` is `NumOptBase.Identity()`, the identity mapping is applied. The constant
+  `NumOptBase.Id` is the singleton object of type `NumOptBase.Identity`.
+
+- If `f` is an instance of `NumOptBase.Diag`, an element-wise
+  multiplication by `diag(f)` is applied.
+
+The `NumOptBase.apply!` method shall be specialized in other argument types to
+handle other cases.
 
 
 ### Other operations

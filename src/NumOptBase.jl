@@ -14,7 +14,6 @@ if !isdefined(Base, :get_extension)
     using Requires
 end
 
-
 """
     NumOptBase.Identity()
 
@@ -54,14 +53,17 @@ arguments `args...`.
 As implemented in `NumOptBase`, this method only handles a few types of
 mappings:
 
-- if `f` is an array, a generalized matrix-vector multiplication is applied;
+- If `f` is an array, a generalized matrix-vector multiplication is applied.
 
-- if `f` is [`NumOptBase.Identity()`](@ref), the identity mapping is applied;
+- If `f` is [`NumOptBase.Identity()`](@ref), the identity mapping is applied.
+  The constant [`NumOptBase.Id`](@ref) is the singleton object of type
+  [`NumOptBase.Identity`](@ref).
 
-- if `f` is an instance of [`NumOptBase.Diag`](@ref), an element_wsie
+- If `f` is an instance of [`NumOptBase.Diag`](@ref), an element-wise
   multiplication by `diag(f)` is applied.
 
-This method shall be extended to specific argument types to handle other cases.
+The `NumOptBase.apply!` method shall be specialized in other argument types to
+handle other cases.
 
 """
 function apply!(y::AbstractArray{T,Ny},
