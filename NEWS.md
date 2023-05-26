@@ -1,5 +1,9 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.4
+
+- Fix extend of `LoopVectorization` to more other basic operations.
+
 # Version 0.1.3
 
 - Extend  `LoopVectorization` to more other basic operations.
