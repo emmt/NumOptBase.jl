@@ -116,11 +116,13 @@ As of now, `NumOptBase.apply!` only handles a few types of mappings:
 - If `f` is an array, a generalized matrix-vector multiplication is applied to
   `args...` which must be a single array of variables.
 
-- If `f` is `NumOptBase.Identity()`, the identity mapping is applied. The constant
-  `NumOptBase.Id` is the singleton object of type `NumOptBase.Identity`.
+- If `f` is `NumOptBase.Identity()`, the identity mapping is applied, that is
+  the values of `src` are copied into `dst` (unless they are the same object).
+  The constant `NumOptBase.Id` is the singleton object of type
+  `NumOptBase.Identity`.
 
-- If `f` is an instance of `NumOptBase.Diag`, an element-wise
-  multiplication by `diag(f)` is applied.
+- If `f` is an instance of `NumOptBase.Diag`, an element-wise multiplication by
+  `diag(f)` is applied.
 
 The `NumOptBase.apply!` method shall be specialized in other argument types to
 handle other cases.

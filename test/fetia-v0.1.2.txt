@@ -1,0 +1,92 @@
+# CPU = Intel Xeon Silver 4215R @ 3.20GHz
+# Julia 1.9
+# NumOptBase 0.1.2
+# LoopVectorization 0.12.159
+#
+Inner product
+  NumOptBase.inner(  x,y)   477.154 ns (0 allocations: 0 bytes)
+  vdot_debug(        x,y)   10.055 μs (0 allocations: 0 bytes)
+  vdot_inbounds(     x,y)   10.052 μs (0 allocations: 0 bytes)
+  vdot_simd(         x,y)   817.179 ns (0 allocations: 0 bytes)
+  vdot_turbo(        x,y)   485.564 ns (0 allocations: 0 bytes)
+  vdot(InBounds,     x,y)   10.219 μs (1 allocation: 16 bytes)
+  vdot(Vectorize,    x,y)   1.008 μs (1 allocation: 16 bytes)
+  vdot(Turbo,        x,y)   679.627 ns (1 allocation: 16 bytes)
+  NumOptBase.inner(w,x,y)   805.035 ns (0 allocations: 0 bytes)
+  vdot_debug(      w,x,y)   10.068 μs (0 allocations: 0 bytes)
+  vdot_inbounds(   w,x,y)   10.066 μs (0 allocations: 0 bytes)
+  vdot_simd(       w,x,y)   1.262 μs (0 allocations: 0 bytes)
+  vdot_turbo(      w,x,y)   813.574 ns (0 allocations: 0 bytes)
+  vdot(InBounds,   w,x,y)   10.248 μs (1 allocation: 16 bytes)
+  vdot(Vectorize,  w,x,y)   1.475 μs (1 allocation: 16 bytes)
+  vdot(Turbo,      w,x,y)   1.038 μs (1 allocation: 16 bytes)
+
+ℓ₁ norm
+  NumOptBase.norm1( x)   440.934 ns (0 allocations: 0 bytes)
+  vnorm1_debug(     x)   10.050 μs (0 allocations: 0 bytes)
+  vnorm1_inbounds(  x)   10.051 μs (0 allocations: 0 bytes)
+  vnorm1_simd(      x)   440.697 ns (0 allocations: 0 bytes)
+  vnorm1_turbo(     x)   267.544 ns (0 allocations: 0 bytes)
+  vnorm1(InBounds,  x)   10.195 μs (1 allocation: 16 bytes)
+  vnorm1(Vectorize, x)   597.309 ns (1 allocation: 16 bytes)
+  vnorm1(Turbo,     x)   469.077 ns (1 allocation: 16 bytes)
+
+Euclidean norm
+  NumOptBase.norm2( x)   377.284 ns (0 allocations: 0 bytes)
+  vnorm2_debug(     x)   10.052 μs (0 allocations: 0 bytes)
+  vnorm2_inbounds(  x)   10.053 μs (0 allocations: 0 bytes)
+  vnorm2_simd(      x)   376.902 ns (0 allocations: 0 bytes)
+  vnorm2_turbo(     x)   260.774 ns (0 allocations: 0 bytes)
+  vnorm2(InBounds,  x)   10.194 μs (1 allocation: 16 bytes)
+  vnorm2(Vectorize, x)   537.497 ns (1 allocation: 16 bytes)
+  vnorm2(Turbo,     x)   444.485 ns (1 allocation: 16 bytes)
+
+Infinite norm
+  NumOptBase.norminf( x)   267.889 ns (0 allocations: 0 bytes)
+  vnorminf_debug(     x)   10.051 μs (0 allocations: 0 bytes)
+  vnorminf_inbounds(  x)   10.051 μs (0 allocations: 0 bytes)
+  vnorminf_simd(      x)   10.051 μs (0 allocations: 0 bytes)
+  vnorminf_turbo(     x)   266.156 ns (0 allocations: 0 bytes)
+  vnorminf(InBounds,  x)   10.197 μs (1 allocation: 16 bytes)
+  vnorminf(Vectorize, x)   10.195 μs (1 allocation: 16 bytes)
+  vnorminf(Turbo,     x)   461.117 ns (1 allocation: 16 bytes)
+
+Scaling
+  NumOptBase.scale!( z, α, x)   858.613 ns (0 allocations: 0 bytes)
+  vscale_debug!(     z, α, x)   854.652 ns (0 allocations: 0 bytes)
+  vscale_inbounds!(  z, α, x)   854.551 ns (0 allocations: 0 bytes)
+  vscale_simd!(      z, α, x)   854.507 ns (0 allocations: 0 bytes)
+  vscale_turbo!(     z, α, x)   845.423 ns (0 allocations: 0 bytes)
+  vscale!(InBounds,  z, α, x)   1.044 μs (1 allocation: 16 bytes)
+  vscale!(Vectorize, z, α, x)   1.045 μs (1 allocation: 16 bytes)
+  vscale!(Turbo,     z, α, x)   1.045 μs (1 allocation: 16 bytes)
+
+Updating
+  NumOptBase.update!( z, α, x)   1.021 μs (0 allocations: 0 bytes)
+  vupdate_debug!(     z, α, x)   1.018 μs (0 allocations: 0 bytes)
+  vupdate_inbounds!(  z, α, x)   1.017 μs (0 allocations: 0 bytes)
+  vupdate_simd!(      z, α, x)   1.018 μs (0 allocations: 0 bytes)
+  vupdate_turbo!(     z, α, x)   837.056 ns (0 allocations: 0 bytes)
+  vupdate!(InBounds,  z, α, x)   1.218 μs (1 allocation: 16 bytes)
+  vupdate!(Vectorize, z, α, x)   1.210 μs (1 allocation: 16 bytes)
+  vupdate!(Turbo,     z, α, x)   1.019 μs (1 allocation: 16 bytes)
+
+Multiplying
+  NumOptBase.multiply!( z, x, y)   1.259 μs (0 allocations: 0 bytes)
+  vmultiply_debug!(     z, x, y)   1.256 μs (0 allocations: 0 bytes)
+  vmultiply_inbounds!(  z, x, y)   1.259 μs (0 allocations: 0 bytes)
+  vmultiply_simd!(      z, x, y)   1.258 μs (0 allocations: 0 bytes)
+  vmultiply_turbo!(     z, x, y)   1.096 μs (0 allocations: 0 bytes)
+  vmultiply!(InBounds,  z, x, y)   1.443 μs (0 allocations: 0 bytes)
+  vmultiply!(Vectorize, z, x, y)   1.439 μs (0 allocations: 0 bytes)
+  vmultiply!(Turbo,     z, x, y)   1.276 μs (0 allocations: 0 bytes)
+
+Combining
+  NumOptBase.combine!( z, α, x, β, y)   1.234 μs (0 allocations: 0 bytes)
+  vcombine_debug!(     z, α, x, β, y)   1.230 μs (0 allocations: 0 bytes)
+  vcombine_inbounds!(  z, α, x, β, y)   1.231 μs (0 allocations: 0 bytes)
+  vcombine_simd!(      z, α, x, β, y)   1.233 μs (0 allocations: 0 bytes)
+  vcombine_turbo!(     z, α, x, β, y)   997.300 ns (0 allocations: 0 bytes)
+  vcombine!(InBounds,  z, α, x, β, y)   1.469 μs (2 allocations: 32 bytes)
+  vcombine!(Vectorize, z, α, x, β, y)   1.474 μs (2 allocations: 32 bytes)
+  vcombine!(Turbo,     z, α, x, β, y)   1.323 μs (2 allocations: 32 bytes)
