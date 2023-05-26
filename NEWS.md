@@ -1,5 +1,10 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.3
+
+- Avoid using `LoopVectorization` if the `@turbo` macro is not defined (i.e.
+  for Julia < 1.5 or `LoopVectorization` < 0.12.22).
+
 # Version 0.1.2
 
 - Add `LoopVectorization` to speed up some operations as a package extension
