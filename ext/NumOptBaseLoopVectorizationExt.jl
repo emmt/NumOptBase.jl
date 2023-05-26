@@ -47,6 +47,22 @@ end
         return acc
     end
 
+    function norm1(x::StridedArray)
+        acc = abs(zero(eltype(x)))
+        @turbo for i in eachindex(x)
+            acc += abs(x[i])
+        end
+        return acc
+    end
+
+    function norm2(x::StridedArray)
+        acc = abs2(zero(eltype(x)))
+        @turbo for i in eachindex(x)
+            acc += abs2(x[i])
+        end
+        return sqrt(acc)
+    end
+
     function NumOptBase.norminf(x::StridedArray)
         r = abs(zero(eltype(x)))
         @turbo for i in eachindex(x)
@@ -54,6 +70,25 @@ end
             r = a > r ? a : r
         end
         return r
+    end
+
+    @inline function unsafe_map!(f::Function,
+                                 dst::StridedArray,
+                                 x::StridedArray)
+        @turbo for i in eachindex(dst, x)
+            dst[i] = f(x[i])
+        end
+        nothing
+    end
+
+    @inline function unsafe_map!(f::Function,
+                                 dst::StridedArray,
+                                 x::StridedArray,
+                                 y::StridedArray)
+        @turbo for i in eachindex(dst, x, y)
+            dst[i] = f(x[i], y[i])
+        end
+        nothing
     end
 
 else
