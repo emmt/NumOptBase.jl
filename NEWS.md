@@ -1,5 +1,13 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.5
+
+- Fix norms for complex-valued variables.
+
+- Norms of scalars.
+
+- Speed-up infinite norm when `LoopVectorization` is not loaded.
+
 # Version 0.1.4
 
 - Fix extend of `LoopVectorization` to more other basic operations.

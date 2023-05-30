@@ -4,39 +4,49 @@ using NumOptBase
 using Test
 using Base: @propagate_inbounds
 
-# Reference methods.
-function ref_norm1(x)
-    s = zero(eltype(x))
+# Reference methods (NOTE: muti-dimensional arrays are treated as vectors and
+# complexes as pairs of reals).
+ref_norm1(x::Real) = abs(x)
+ref_norm1(x::Complex) = ref_norm1(real(x)) + ref_norm1(imag(x))
+function ref_norm1(x::AbstractArray)
+    s = ref_norm1(zero(eltype(x)))
     for xᵢ in x
-        s += abs(xᵢ)
+        s += ref_norm1(xᵢ)
     end
     return s
 end
-function ref_norm2(x)
-    s = zero(eltype(x))
+ref_norm2(x::Real) = abs(x)
+ref_norm2(x::Complex) = sqrt(abs2(x))
+function ref_norm2(x::AbstractArray)
+    s = abs2(zero(eltype(x)))
     for xᵢ in x
         s += abs2(xᵢ)
     end
     return sqrt(s)
 end
-function ref_norminf(x)
-    s = zero(eltype(x))
+ref_norminf(x::Real) = abs(x)
+ref_norminf(x::Complex) = max(abs(real(x)), abs(imag(x)))
+function ref_norminf(x::AbstractArray)
+    s = ref_norminf(zero(eltype(x)))
     for xᵢ in x
-        s = max(s, abs(xᵢ))
+        s = max(s, ref_norminf(xᵢ))
     end
     return s
 end
-function ref_inner(x,y)
-    s = zero(eltype(x))*zero(eltype(y))
+ref_inner(x::Real, y::Real) = x*y
+ref_inner(x::Complex, y::Complex) = real(x)*real(y) + imag(x)*imag(y)
+ref_inner(w::Real, x::Real, y::Real) = w*x*y
+function ref_inner(x::AbstractArray, y::AbstractArray)
+    s = ref_inner(zero(eltype(x)), zero(eltype(y)))
     for (xᵢ,yᵢ) in zip(x,y)
-        s += xᵢ*yᵢ
+        s += ref_inner(xᵢ, yᵢ)
     end
     return s
 end
-function ref_inner(w,x,y)
-    s = zero(eltype(w))*zero(eltype(x))*zero(eltype(y))
+function ref_inner(w::AbstractArray, x::AbstractArray, y::AbstractArray)
+    s = ref_inner(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))
     for (wᵢ,xᵢ,yᵢ) in zip(w,x,y)
-        s += wᵢ*xᵢ*yᵢ
+        s += ref_inner(wᵢ, xᵢ, yᵢ)
     end
     return s
 end
@@ -77,7 +87,7 @@ Base.similar(A::MyArray, ::Type{T}, dims::Dims) where {T} =
     MyArray(similar(parent(A), T, dims))
 
 function runtests()
-    T′s = (Float32, Float64)
+    T′s = (Float64, Complex{Float32})
     F′s = (:StridedArray, :AbstractArray)
     α′s = (0, 1, -1, 2.1)
     β′s = (0, 1, -1, -1.7)
@@ -90,30 +100,34 @@ function runtests()
         z = similar(x)
         @testset "norm1" begin
             let res = @inferred NumOptBase.norm1(x)
-                @test typeof(res) === T
+                @test typeof(res) === real(T)
                 @test res ≈ ref_norm1(x)
             end
         end
         @testset "norm2" begin
             let res = @inferred NumOptBase.norm2(x)
-                @test typeof(res) === T
+                @test typeof(res) === real(T)
                 @test res ≈ ref_norm2(x)
             end
         end
         @testset "norminf" begin
             let res = @inferred NumOptBase.norminf(x)
-                @test typeof(res) === T
+                @test typeof(res) === real(T)
                 @test res ≈ ref_norminf(x)
             end
         end
         @testset "inner product" begin
             let res = @inferred NumOptBase.inner(x, y)
-                @test typeof(res) === T
+                @test typeof(res) === real(T)
                 @test res ≈ ref_inner(x, y)
             end
-            let res = @inferred NumOptBase.inner(w, x, y)
-                @test typeof(res) === T
-                @test res ≈ ref_inner(w, x, y)
+            if T <: Complex
+                @test_throws Exception NumOptBase.inner(w, x, y)
+            else
+                let res = @inferred NumOptBase.inner(w, x, y)
+                    @test typeof(res) === real(T)
+                    @test res ≈ ref_inner(w, x, y)
+                end
             end
         end
         @testset "scale! α = $α" for α in α′s

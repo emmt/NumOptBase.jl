@@ -335,29 +335,33 @@ end
 """
     NumOptBase.norm1(x)
 
-yields the ℓ₁ norm of `x` considered as a *vector* (i.e; as if `x` has been
-flattened).
+yields the ℓ₁ norm of `x` considered as a real-valued *vector* (i.e, as if `x`
+has been flattened).
 
 """
+norm1(x::Real) = abs(x)
+norm1(x::Complex{<:Real}) = abs(real(x)) + abs(imag(x))
 function norm1(x::AbstractArray)
     if x isa StridedArray
-        acc = abs(zero(eltype(x)))
+        acc = norm1(zero(eltype(x)))
         @inbounds @simd for i in eachindex(x)
-            acc += abs(x[i])
+            acc += norm1(x[i])
         end
         return acc
     else
-        return mapreduce(abs, +, x)
+        return mapreduce(norm1, +, x)
     end
 end
 
 """
     NumOptBase.norm2(x)
 
-yields the Euclidean norm of `x` considered as a *vector* (i.e; as if `x` has
-been flattened).
+yields the Euclidean norm of `x` considered as a real-valued *vector* (i.e, as
+if `x` has been flattened).
 
 """
+norm2(x::Real) = abs(x)
+norm2(x::Complex{<:Real}) = sqrt(abs2(x))
 function norm2(x::AbstractArray)
     if x isa StridedArray
         acc = abs2(zero(eltype(x)))
@@ -366,32 +370,23 @@ function norm2(x::AbstractArray)
         end
         return sqrt(acc)
     else
-        v = flatten(x)
-        return sqrt(v'*v)
+        return sqrt(mapreduce(abs2, +, x))
     end
 end
+# NOTE: Base.abs2 does this:
+#     abs2(x::Real) = x*x
+#     abs2(x::Complex) = abs2(real(x)) + abs2(imag(x))
 
 """
     NumOptBase.norminf(x)
 
-yields the infinite norm of `x` considered as a *vector* (i.e; as if `x` has
-been flattened).
+yields the infinite norm of `x` considered as a real-valued *vector* (i.e, as
+if `x` has been flattened).
 
 """
-function norminf(x::AbstractArray)
-    if x isa StridedArray
-        r = abs(zero(eltype(x)))
-        @inbounds @simd for i in eachindex(x)
-            a = abs(x[i])
-            r = a > r ? a : r
-        end
-        return r
-    else
-        return reduce(max_abs, x; init = abs(zero(eltype(x))))
-    end
-end
-
-max_abs(x, y) = (abs_y = abs(y)) > x ? abs_y : x
+norminf(x::Real) = abs(x)
+norminf(x::Complex{<:Real}) = max(abs(real(x)), abs(imag(x)))
+norminf(x::AbstractArray) = mapreduce(norminf, max, x)
 
 flatten(x::AbstractVector) = x
 flatten(x::AbstractArray) = reshape(x, length(x))
