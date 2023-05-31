@@ -8,48 +8,26 @@ using Base: @propagate_inbounds
 # complexes as pairs of reals).
 ref_norm1(x::Real) = abs(x)
 ref_norm1(x::Complex) = ref_norm1(real(x)) + ref_norm1(imag(x))
-function ref_norm1(x::AbstractArray)
-    s = ref_norm1(zero(eltype(x)))
-    for xᵢ in x
-        s += ref_norm1(xᵢ)
-    end
-    return s
-end
+ref_norm1(x::AbstractArray) =
+    mapreduce(ref_norm1, +, x; init = ref_norm1(zero(eltype(x))))
+
 ref_norm2(x::Real) = abs(x)
 ref_norm2(x::Complex) = sqrt(abs2(x))
-function ref_norm2(x::AbstractArray)
-    s = abs2(zero(eltype(x)))
-    for xᵢ in x
-        s += abs2(xᵢ)
-    end
-    return sqrt(s)
-end
+ref_norm2(x::AbstractArray) =
+    sqrt(mapreduce(abs2, +, x; init = abs2(zero(eltype(x)))))
+
 ref_norminf(x::Real) = abs(x)
 ref_norminf(x::Complex) = max(abs(real(x)), abs(imag(x)))
-function ref_norminf(x::AbstractArray)
-    s = ref_norminf(zero(eltype(x)))
-    for xᵢ in x
-        s = max(s, ref_norminf(xᵢ))
-    end
-    return s
-end
+ref_norminf(x::AbstractArray) =
+    mapreduce(ref_norminf, max, x; init = ref_norminf(zero(eltype(x))))
+
 ref_inner(x::Real, y::Real) = x*y
 ref_inner(x::Complex, y::Complex) = real(x)*real(y) + imag(x)*imag(y)
 ref_inner(w::Real, x::Real, y::Real) = w*x*y
-function ref_inner(x::AbstractArray, y::AbstractArray)
-    s = ref_inner(zero(eltype(x)), zero(eltype(y)))
-    for (xᵢ,yᵢ) in zip(x,y)
-        s += ref_inner(xᵢ, yᵢ)
-    end
-    return s
-end
-function ref_inner(w::AbstractArray, x::AbstractArray, y::AbstractArray)
-    s = ref_inner(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))
-    for (wᵢ,xᵢ,yᵢ) in zip(w,x,y)
-        s += ref_inner(wᵢ, xᵢ, yᵢ)
-    end
-    return s
-end
+ref_inner(x::AbstractArray, y::AbstractArray) =
+    mapreduce(ref_inner, +, x, y; init = ref_inner(zero(eltype(x)), zero(eltype(y))))
+ref_inner(w::AbstractArray, x::AbstractArray, y::AbstractArray) =
+    mapreduce(ref_inner, +, w, x, y; init = ref_inner(zero(eltype(w)), zero(eltype(x)), zero(eltype(y))))
 
 # Custom array type to check other versions than the ones that apply for
 # strided arrays.
