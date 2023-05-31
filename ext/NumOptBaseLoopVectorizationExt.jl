@@ -3,11 +3,11 @@ module NumOptBaseLoopVectorizationExt
 if isdefined(Base, :get_extension)
     using LoopVectorization
     import NumOptBase
-    using NumOptBase: inner
+    using NumOptBase: inner, norm1, norminf
 else
     using ..LoopVectorization
     import ..NumOptBase
-    using ..NumOptBase: inner
+    using ..NumOptBase: inner, norm1, norminf
 end
 
 # The @turbo macro was introduced in LoopVectorization 0.12.22 to replace @avx.
@@ -48,9 +48,9 @@ end
     end
 
     function NumOptBase.norm1(x::StridedArray)
-        acc = abs(zero(eltype(x)))
+        acc = norm1(zero(eltype(x)))
         @turbo for i in eachindex(x)
-            acc += abs(x[i])
+            acc += norm1(x[i])
         end
         return acc
     end
@@ -64,9 +64,9 @@ end
     end
 
     function NumOptBase.norminf(x::StridedArray)
-        r = abs(zero(eltype(x)))
+        r = norminf(zero(eltype(x)))
         @turbo for i in eachindex(x)
-            a = abs(x[i])
+            a = norminf(x[i])
             r = a > r ? a : r
         end
         return r
