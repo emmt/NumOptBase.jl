@@ -75,7 +75,6 @@ function apply!(y::AbstractArray{T,Ny},
         "axes of output array must be the same as the leading axes of the \"matrix\""))
     (Nx ≤ Na && axes(x) == inds[Na-Nx+1:Na]) || throw(DimensionMismatch(
         "axes of input array must be the same as the trailing axes of the \"matrix\""))
-    @assert axes(x) == axes(A)[Ny+1:Na]
     if Ny == 1 && Nx == 1
         mul!(y, A, x)
     else
@@ -109,6 +108,16 @@ function scale!(dst::AbstractArray{T,N},
     return dst
 end
 
+"""
+    NumOptBase.unsafe_scale!(dst, α, x)
+
+executes the task of [`NumOptBase.scale!`](@ref) assuming without checking
+that array arguments have the same axes. This method is thus *unsafe* and shall
+not be directly called but it may be extended for specific array types. By
+default, it uses SIMD vectorization for strided arrays and calls `map!` for
+other arrays.
+
+"""
 function unsafe_scale!(dst::AbstractArray,
                        α::Real, x::AbstractArray)
     if iszero(α)
@@ -125,10 +134,10 @@ function unsafe_scale!(dst::AbstractArray,
 end
 
 """
-    NumOptBase.update!(x, β, y) -> x
+    NumOptBase.update!(dst, α, x) -> dst
 
-overwrites destination `x` with `x + β⋅y` and returns `x`. This is a shortcut
-for `NumOptBase.combine!(x,1,x,β,y)`.
+overwrites destination `dst` with `dst + α⋅x` and returns `dst`. This is a shortcut
+for `NumOptBase.combine!(dst,1,dst,α,x)`.
 
 """
 function update!(dst::AbstractArray{T,N},
@@ -138,7 +147,15 @@ function update!(dst::AbstractArray{T,N},
     return dst
 end
 
+"""
+    NumOptBase.unsafe_update!(dst, α, x)
 
+executes the task of [`NumOptBase.update!`](@ref) assuming without checking
+that array arguments have the same axes. This method is thus *unsafe* and shall
+not be directly called but it may be extended for specific array types. By
+default, it calls [`NumOptBase.unsafe_map!`](@ref).
+
+"""
 function unsafe_update!(dst::AbstractArray,
                         α::Real, x::AbstractArray)
     if isone(α)
@@ -200,6 +217,16 @@ end
 @inline combine_xpby(α, x, β, y) = x + β*y
 @inline combine_axpby(α, x, β, y) = α*x + β*y
 
+"""
+    NumOptBase.unsafe_combine!(dst, α, x, β, y)
+
+executes the task of [`NumOptBase.combine!`](@ref) assuming without checking
+that array arguments have the same axes. This method is thus *unsafe* and shall
+not be directly called but it may be extended for specific array types. By
+default, it calls [`NumOptBase.unsafe_map!`](@ref) with a special callable
+object to perform the operation for a single variable.
+
+"""
 function unsafe_combine!(dst::AbstractArray,
                          α::Real, x::AbstractArray,
                          β::Real, y::AbstractArray)
@@ -244,8 +271,8 @@ convert_multiplier(α::Real, x::AbstractArray) =
 
 overwrites `dst` with the result of applying `f` element-wise to `args...`.
 
-This method may be extended for specific array types. By default, it uses
-loop-vectorization for strided arrays and calls `map!` for other arrays.
+This method may be extended for specific array types. By default, it uses SIMD
+vectorization for strided arrays and calls `map!` for other arrays.
 
 This method is *unsafe* because it assumes without checking that `dst` and all
 `args...` have the same indices.
@@ -303,6 +330,16 @@ end
 inner(x::Real, y::Real) = x*y
 inner(x::Complex, y::Complex) = real(x)*real(y) + imag(x)*imag(y)
 
+"""
+    NumOptBase.unsafe_inner!([w,] x, y)
+
+executes the task of [`NumOptBase.inner!`](@ref) assuming without checking that
+array arguments have the same axes. This method is thus *unsafe* and shall not
+be directly called but it may be extended for specific array types. By default,
+it uses SIMD vectorization for strided arrays and calls `mapreduce` for other
+arrays.
+
+"""
 function unsafe_inner(x::AbstractArray,
                       y::AbstractArray)
     if x isa StridedArray && y isa StridedArray
