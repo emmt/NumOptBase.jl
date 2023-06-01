@@ -64,84 +64,94 @@ end
 Base.similar(A::MyArray, ::Type{T}, dims::Dims) where {T} =
     MyArray(similar(parent(A), T, dims))
 
-function runtests()
-    T′s = (Float64, Complex{Float32})
-    F′s = (:StridedArray, :AbstractArray)
-    α′s = (0, 1, -1, 2.1)
-    β′s = (0, 1, -1, -1.7)
-    dims = (3,4,5)
-    @testset "NumOptBase T=$T, $F" for F ∈ F′s, T ∈ T′s
-        wrapper = F === :StridedArray ? identity : MyArray
-        w = wrapper(rand(T, dims))
-        x = wrapper(rand(T, dims))
-        y = wrapper(rand(T, dims))
+function runtests(;
+                  classes = (:StridedArray, :AbstractArray),
+                  eltypes = (Float64, Complex{Float32}),
+                  dims = (3,4,5),
+                  alphas = (0, 1, -1, 2.1),
+                  betas = (0, 1, -1, -1.7))
+    @testset "$F{$T,$(length(dims))}" for F ∈ classes, T ∈ eltypes
+        wrapper =
+            (F === :StridedArray || F === StridedArray) ? identity :
+            (F === :AbstractArray || F === AbstractArray) ? MyArray :
+            (F isa UnionAll || F isa DataType) ? F :
+            error("unexpected array class $F")
+        w_ref = rand(T, dims)
+        x_ref = rand(T, dims)
+        y_ref = rand(T, dims)
+        tmp = Array{T}(undef, dims)
+        w = wrapper(w_ref)
+        x = wrapper(x_ref)
+        y = wrapper(y_ref)
         z = similar(x)
         @testset "norm1" begin
             let res = @inferred NumOptBase.norm1(x)
                 @test typeof(res) === real(T)
-                @test res ≈ ref_norm1(x)
+                @test res ≈ ref_norm1(x_ref)
             end
         end
         @testset "norm2" begin
             let res = @inferred NumOptBase.norm2(x)
                 @test typeof(res) === real(T)
-                @test res ≈ ref_norm2(x)
+                @test res ≈ ref_norm2(x_ref)
             end
         end
         @testset "norminf" begin
             let res = @inferred NumOptBase.norminf(x)
                 @test typeof(res) === real(T)
-                @test res ≈ ref_norminf(x)
+                @test res ≈ ref_norminf(x_ref)
             end
         end
         @testset "inner product" begin
             let res = @inferred NumOptBase.inner(x, y)
                 @test typeof(res) === real(T)
-                @test res ≈ ref_inner(x, y)
+                @test res ≈ ref_inner(x_ref, y_ref)
             end
             if T <: Complex
                 @test_throws Exception NumOptBase.inner(w, x, y)
             else
                 let res = @inferred NumOptBase.inner(w, x, y)
                     @test typeof(res) === real(T)
-                    @test res ≈ ref_inner(w, x, y)
+                    @test res ≈ ref_inner(w_ref, x_ref, y_ref)
                 end
             end
         end
-        @testset "scale! α = $α" for α in α′s
+        @testset "scale! α = $α" for α in alphas
             let res = @inferred NumOptBase.scale!(z, α, x)
                 @test res === z
-                @test res ≈ (@. α*x)
+                @test copyto!(tmp, res) ≈ (@. α*x_ref)
             end
         end
         @testset "multiply!" begin
             let res = @inferred NumOptBase.multiply!(z, x, y)
                 @test res === z
-                @test res ≈ (@. x*y)
+                @test copyto!(tmp, res) ≈ (@. x_ref*y_ref)
             end
         end
-        @testset "update! α = $α" for α in α′s
+        @testset "update! α = $α" for α in alphas
             let res = @inferred NumOptBase.update!(copyto!(z, y), α, x)
                 @test res === z
-                @test res ≈ (@. y + α*x)
+                @test copyto!(tmp, res) ≈ (@. y_ref + α*x_ref)
             end
         end
-        @testset "combine! α = $α, β = $β" for α in α′s, β ∈ β′s
+        @testset "combine! α = $α, β = $β" for α in alphas, β ∈ betas
             let res = @inferred NumOptBase.combine!(z, α, x, β, y)
                 @test res === z
-                @test res ≈ (@. α*x + β*y)
+                @test copyto!(tmp, res) ≈ (@. α*x_ref + β*y_ref)
             end
         end
     end
-    nothing
 end
 
 end # module
 
-println(stderr, "Testing NumOptBase package...")
-TestingNumOptBase.runtests()
+using Test
+@testset "NumOptBase package" TestingNumOptBase.runtests()
 if !isdefined(Main,:LoopVectorization)
-    println(stderr, "\nTesting NumOptBase package with LoopVectorization...")
     using LoopVectorization
-    TestingNumOptBase.runtests()
+    println()
+    @testset "NumOptBase package with LoopVectorization" TestingNumOptBase.runtests()
 end
+# To test with CUDA, do something like:
+# @testset "NumOptBase package with CUDA" TestingNumOptBase.runtests(; classes = (CuArray,))
+nothing

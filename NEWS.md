@@ -1,5 +1,12 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.6
+
+- Implement operations for GPU arrays provided by the
+  [`CUDA.jl`](https://github.com/JuliaGPU/CUDA.jl) package.
+
+- Fix norms with `LoopVectorization`.
+
 # Version 0.1.5
 
 - Fix norms for complex-valued variables.
