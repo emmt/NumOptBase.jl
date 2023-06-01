@@ -15,6 +15,14 @@ if !isdefined(Base, :get_extension)
 end
 
 """
+    NumOptBase.RealComplex{R<:Real}
+
+is the type union of `R` and `Complex{R}`.
+
+"""
+const RealComplex{R<:Real} = Union{R,Complex{R}}
+
+"""
     NumOptBase.Identity()
 
 yields a singleton object representing the identity mapping for the

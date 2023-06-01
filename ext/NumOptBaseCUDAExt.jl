@@ -3,20 +3,12 @@ module NumOptBaseCUDAExt
 if isdefined(Base, :get_extension)
     using CUDA
     import NumOptBase
-    using NumOptBase: inner, norm1, norminf, convert_multiplier, unsafe_map!, unsafe_scale!
+    using NumOptBase: RealComplex, inner, norm1, norminf, convert_multiplier, unsafe_map!, unsafe_scale!
 else
     using ..CUDA
     import ..NumOptBase
-    using ..NumOptBase: inner, norm1, norminf, convert_multiplier, unsafe_map!, unsafe_scale!
+    using ..NumOptBase: RealComplex, inner, norm1, norminf, convert_multiplier, unsafe_map!, unsafe_scale!
 end
-
-"""
-    RealComplex{R<:Real}
-
-is the type union of `R` and `Complex{R}`.
-
-"""
-const RealComplex{R<:Real} = Union{R,Complex{R}}
 
 flatten(A::CuArray{<:Real,1}) = A
 @inline function flatten(A::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
