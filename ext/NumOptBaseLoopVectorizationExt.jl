@@ -10,6 +10,8 @@ else
     using ..NumOptBase: inner, norm1, norminf
 end
 
+using Base: HWReal
+
 # The @turbo macro was introduced in LoopVectorization 0.12.22 to replace @avx.
 # We could either always use the @turbo macro in the code and, if it does not
 # exist, define an alias with:
@@ -28,8 +30,8 @@ end
 
 @static if isdefined(@__MODULE__, Symbol("@turbo"))
 
-    function NumOptBase.unsafe_inner(x::StridedArray,
-                                     y::StridedArray)
+    function NumOptBase.unsafe_inner(x::StridedArray{T,N},
+                                     y::StridedArray{T,N}) where {T<:HWReal,N}
         acc = inner(zero(eltype(x)), zero(eltype(y)))
         @turbo for i in eachindex(x, y)
             acc += inner(x[i], y[i])
@@ -37,9 +39,9 @@ end
         return acc
     end
 
-    function NumOptBase.unsafe_inner(w::StridedArray,
-                                     x::StridedArray,
-                                     y::StridedArray)
+    function NumOptBase.unsafe_inner(w::StridedArray{T,N},
+                                     x::StridedArray{T,N},
+                                     y::StridedArray{T,N}) where {T<:HWReal,N}
         acc = inner(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))
         @turbo for i in eachindex(w, x, y)
             acc += inner(w[i], x[i], y[i])
@@ -47,7 +49,7 @@ end
         return acc
     end
 
-    function NumOptBase.norm1(x::StridedArray)
+    function NumOptBase.norm1(x::StridedArray{T,N}) where {T<:HWReal,N}
         acc = norm1(zero(eltype(x)))
         @turbo for i in eachindex(x)
             acc += norm1(x[i])
@@ -55,7 +57,7 @@ end
         return acc
     end
 
-    function NumOptBase.norm2(x::StridedArray)
+    function NumOptBase.norm2(x::StridedArray{T,N}) where {T<:HWReal,N}
         acc = abs2(zero(eltype(x)))
         @turbo for i in eachindex(x)
             acc += abs2(x[i])
@@ -63,7 +65,7 @@ end
         return sqrt(acc)
     end
 
-    function NumOptBase.norminf(x::StridedArray)
+    function NumOptBase.norminf(x::StridedArray{T,N}) where {T<:HWReal,N}
         r = norminf(zero(eltype(x)))
         @turbo for i in eachindex(x)
             a = norminf(x[i])
@@ -73,8 +75,8 @@ end
     end
 
     @inline function NumOptBase.unsafe_map!(f::Function,
-                                            dst::StridedArray,
-                                            x::StridedArray)
+                                            dst::StridedArray{T,N},
+                                            x::StridedArray{T,N}) where {T<:HWReal,N}
         @turbo for i in eachindex(dst, x)
             dst[i] = f(x[i])
         end
@@ -82,9 +84,9 @@ end
     end
 
     @inline function NumOptBase.unsafe_map!(f::Function,
-                                            dst::StridedArray,
-                                            x::StridedArray,
-                                            y::StridedArray)
+                                            dst::StridedArray{T,N},
+                                            x::StridedArray{T,N},
+                                            y::StridedArray{T,N}) where {T<:HWReal,N}
         @turbo for i in eachindex(dst, x, y)
             dst[i] = f(x[i], y[i])
         end

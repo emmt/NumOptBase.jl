@@ -5,7 +5,8 @@
 - Implement operations for GPU arrays provided by the
   [`CUDA.jl`](https://github.com/JuliaGPU/CUDA.jl) package.
 
-- Fix norms with `LoopVectorization`.
+- In `LoopVectorization` extension: fix norms and restrict arguments to real-valued
+  arrays.
 
 # Version 0.1.5
 
