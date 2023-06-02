@@ -2,6 +2,10 @@
 
 # Version 0.1.7
 
+- Fix dependencies:
+  - Julia ≥ 1.2 is needed for `mapreduce` with multiple arguments.
+  - Julia ≥ 1.3 is needed for `CUDA`.
+
 - Drop dependency on `Unitless`.
 
 # Version 0.1.6
