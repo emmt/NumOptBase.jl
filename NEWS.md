@@ -1,5 +1,9 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.7
+
+- Drop dependency on `Unitless`.
+
 # Version 0.1.6
 
 - Implement operations for GPU arrays provided by the

@@ -7,7 +7,6 @@ optimization methods.
 module NumOptBase
 
 using ArrayTools: @assert_same_axes
-using Unitless: floating_point_type
 using LinearAlgebra
 
 if !isdefined(Base, :get_extension)
@@ -271,8 +270,32 @@ converts scalar real `α` to a floating-point type whose numerical precision is
 the same as that of the elements of `x`.
 
 """
-convert_multiplier(α::Real, x::AbstractArray) =
-    convert(floating_point_type(eltype(x)), α)
+convert_multiplier(α::Real, x::AbstractArray) = as(floating_point_type(x), α)
+
+"""
+    NumOptBase.as(T, x)
+
+converts `x` to type `T`. The result is type-asserted to be of type `T`. If `x
+isa T` holds, `x` is returned unchanged.
+
+"""
+as(::Type{T}, x::T) where {T} = x
+as(::Type{T}, x) where {T} = convert(T, x)::T
+
+"""
+    NumOptBase.floating_point_type(x)
+
+yields the floating-point type corresponding to the numeric type or value `x`.
+If `x` is a numeric array type or instance, the floating-point type of the
+elements of `x` is returned. If `x` is complex, the floating-point type of the
+real and imaginary parts of `x` is returned.
+
+"""
+floating_point_type(x::Any) = floating_point_type(typeof(x))
+floating_point_type(::Type{T}) where {T<:AbstractArray} = floating_point_type(eltype(T))
+floating_point_type(::Type{T}) where {R<:Real,T<:RealComplex{R}} = float(R)
+@noinline floating_point_type(T::Union{DataType,UnionAll}) =
+    throw(ArgumentError("cannot determine floating-point type of `$T`"))
 
 """
     NumOptBase.unsafe_map!(f, dst, args...)

@@ -5,20 +5,21 @@ if !isdefined(@__MODULE__, :TestingNumOptBase)
 end
 
 @testset "NumOptBase package" begin
-    TestingNumOptBase.runtests()
-end
+    TestingNumOptBase.test_utilities()
+    TestingNumOptBase.test_operations()
 
-if !isdefined(Main,:LoopVectorization)
-    using LoopVectorization
-    println()
-    @testset "NumOptBase package with LoopVectorization" begin
-        TestingNumOptBase.runtests()
+    if !isdefined(Main,:LoopVectorization)
+        using LoopVectorization
+        println()
+        @testset "Using LoopVectorization" begin
+            TestingNumOptBase.test_operations()
+        end
     end
 end
 
 # To test with CUDA, do something like:
 # @testset "NumOptBase package with CUDA" begin
-#     TestingNumOptBase.runtests(; classes = (CuArray,))
+#     TestingNumOptBase.test_operationss(; classes = (CuArray,))
 # end
 
 nothing

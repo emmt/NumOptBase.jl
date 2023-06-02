@@ -64,12 +64,37 @@ end
 Base.similar(A::MyArray, ::Type{T}, dims::Dims) where {T} =
     MyArray(similar(parent(A), T, dims))
 
-function runtests(;
-                  classes = (:StridedArray, :AbstractArray),
-                  eltypes = (Float64, Complex{Float32}),
-                  dims = (3,4,5),
-                  alphas = (0, 1, -1, 2.1),
-                  betas = (0, 1, -1, -1.7))
+function test_utilities()
+    @testset "Utilities" begin
+        as = NumOptBase.as
+        @test as(Int, 3) === 3
+        @test as(typeof(sin), sin) === sin
+        @test as(Float32, 3) === 3.0f0
+        @test as(Float32, π) === Float32(π)
+
+        floating_point_type = NumOptBase.floating_point_type
+        @testset "floating_point_type($T)" for (T,F) in ((Int, float(Int)),
+                                                         (Float16, Float16),
+                                                         (Float32, Float32),
+                                                         (Float64, Float64),
+                                                         (BigFloat, BigFloat))
+            @test floating_point_type(T) === F
+            @test floating_point_type(T[]) === F
+            @test floating_point_type(zero(T)) === F
+            @test floating_point_type(Complex{T}) === F
+            @test floating_point_type(Complex{T}[]) === F
+            @test floating_point_type(zero(Complex{T})) === F
+        end
+        @test_throws Exception floating_point_type("hello")
+    end
+end
+
+function test_operations(;
+                         classes = (:StridedArray, :AbstractArray),
+                         eltypes = (Float64, Complex{Float32}),
+                         dims = (3,4,5),
+                         alphas = (0, 1, -1, 2.1),
+                         betas = (0, 1, -1, -1.7))
     @testset "$F{$T,$(length(dims))}" for F ∈ classes, T ∈ eltypes
         wrapper =
             (F === :StridedArray || F === StridedArray) ? identity :
