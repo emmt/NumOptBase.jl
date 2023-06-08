@@ -1,5 +1,11 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.8
+
+- Re-write splitting in low/high level methods.
+
+- Accelerate `norm1` and `norminf` with `LoopVectorization`.
+
 # Version 0.1.7
 
 - Fix dependencies:
