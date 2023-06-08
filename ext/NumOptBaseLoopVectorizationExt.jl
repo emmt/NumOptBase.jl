@@ -30,6 +30,9 @@ using Base: HWReal
 
 @static if isdefined(@__MODULE__, Symbol("@turbo"))
 
+    const can_avx = LoopVectorization.ArrayInterface.can_avx
+    const can_turbo = LoopVectorization.can_turbo
+
     function NumOptBase.unsafe_inner(x::StridedArray{T,N},
                                      y::StridedArray{T,N}) where {T<:HWReal,N}
         acc = inner(zero(eltype(x)), zero(eltype(y)))
@@ -77,8 +80,14 @@ using Base: HWReal
     @inline function NumOptBase.unsafe_map!(f::Function,
                                             dst::StridedArray{T,N},
                                             x::StridedArray{T,N}) where {T<:HWReal,N}
-        @turbo for i in eachindex(dst, x)
-            dst[i] = f(x[i])
+        if can_avx(f)
+            @turbo for i in eachindex(dst, x)
+                dst[i] = f(x[i])
+            end
+        else
+            @inbounds @simd for i in eachindex(dst, x)
+                dst[i] = f(x[i])
+            end
         end
         nothing
     end
@@ -87,8 +96,14 @@ using Base: HWReal
                                             dst::StridedArray{T,N},
                                             x::StridedArray{T,N},
                                             y::StridedArray{T,N}) where {T<:HWReal,N}
-        @turbo for i in eachindex(dst, x, y)
-            dst[i] = f(x[i], y[i])
+        if can_avx(f)
+            @turbo for i in eachindex(dst, x, y)
+                dst[i] = f(x[i], y[i])
+            end
+        else
+            @inbounds @simd for i in eachindex(dst, x, y)
+                dst[i] = f(x[i], y[i])
+            end
         end
         nothing
     end
