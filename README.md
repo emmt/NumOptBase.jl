@@ -142,3 +142,100 @@ way for the type of array storing the variables:
 - `copyto!(dst, src) -> dst` to copy source variables `src` into destination
   variables `dst`;
 - `fill!(x, α) -> x` to set all variables in `x` to the value `α`.
+
+
+## Extension to other array types
+
+To extend the `NumOptBase` to other array types, some understanding of the
+implementation of this package is needed. The **public methods** which can be
+called by the end users are summarized in the following table.
+
+| Public method           | Description             | Remarks                        |
+|:------------------------|:------------------------|:-------------------------------|
+| `similar(x)`            | Yield an array like `x` | Same as `similar!` in Julia    |
+| `zerofill!(dst)`        | Zero-fill `dst`         |                                |
+| `copy!(dst,x)`          | Copy `x` into `dst`     | Same as `copy!` in Julia ≥ 1.1 |
+| `scale!(dst,α,x)`       | `dst = α*x`             |                                |
+| `update!(dst,α,x)`      | `dst += α*x`            |                                |
+| `combine!(dst,α,x,β,y)` | `dst = α*x + β*y`       |                                |
+| `inner(x,y)`            | Inner product           |                                |
+| `inner(w,x,y)`          | Triple inner product    |                                |
+| `norm1(x)`              | ℓ₁ norm                 |                                |
+| `norm2(x)`              | Euclidean norm          |                                |
+| `norminf(x)`            | Infinite norm           |                                |
+
+In the above table and hereinafter, `dst`, `w`, `x`, and `y` denote arrays
+(considered as *vectors*), `α` and `β` denote scalar reals, and all operations
+and function calls are assumed to be done element-wise.
+
+These public methods check their arguments (for having the same axes) and call
+one of the specialized methods listed below depending on the operation and
+on the specific values of the multipliers `α` and `β`
+
+| Operation         | Specialized method                    | Remarks                  |
+|:------------------|:--------------------------------------|:-------------------------|
+| `dst = 0`         | `zerofill!(dst)`                      |                          |
+| `dst = x`         | `unsafe_copy!(dst,x)`                 |                          |
+| `dst = f(x)`      | `unsafe_map!(f,dst,x)`                |                          |
+| `dst = f(x,y)`    | `unsafe_map!(f,dst,x,y)`              |                          |
+| `dst = α*x`       | `unsafe_map!(αx(α,x),dst,x)`          | `α` is not 0, nor 1      |
+| `dst = α*x + y`   | `unsafe_map!(αxpy(α,x),dst,x,y)`      | `α` is not 0, nor 1      |
+| `dst = x + β*y`   | `unsafe_map!(αxpy(β,y),dst,y,x)`      | `β` is not 0, nor 1      |
+| `dst = α*x + β*y` | `unsafe_map!(αxpβy(α,x,β,y),dst,x,y)` | neither `α` nor `β` is 0 |
+| `dst = -x`        | `unsafe_map!(-,dst,x)`                |                          |
+| `dst = x + y`     | `unsafe_map!(+,dst,x,y)`              |                          |
+| `dst = x - y`     | `unsafe_map!(-,dst,x,y)`              |                          |
+| `dst = x * y`     | `unsafe_map!(*,dst,x,y)`              |                          |
+| `inner(x,y)`      | `unsafe_inner(x,y)`                   |                          |
+| `inner(w,x,y)`    | `unsafe_inner(w,x,y)`                 |                          |
+| `norm1(x)`        | `norm1(x))`                           |                          |
+| `norm2(x)`        | `norm2(x)`                            |                          |
+| `norminf(x)`      | `norminf(x)`                          |                          |
+
+The prefix `unsafe_` means that the axes of arguments have been checked to be
+compatible. Any scalar argument (`α` and `β`) shall never be zero and shall
+have been converted to the correct floating-point type. The code of the
+high-level methods shall be simple enough for these methods to be inlined. This
+may lead to some optimizations (when the multipliers have specific values like
+0 or ±1).
+
+Remarks:
+
+- `unsafe_copy!(dst, x)` shall not be called when `dst` and `x` are the same
+  object and amounts to calling `copyto!(dst, x)` by default but may be
+  extended.
+
+- `zerofill!(dst)` amounts to calling `fill!(dst, zero(eltype(dst)))` by
+  default but `memset(pointer(dst), 0, sizeof(dst))` may be used for dense
+  arrays.
+
+- When `α` (resp. `β`) is zero, it is assumed that expression `α*x` (resp.
+  `β*y`) is everywhere zero whatever the values of `x` (resp. `y`).
+
+- It can be seen that a great deal of cases are handled by `unsafe_map!`. To
+  avoid some overheads with closures and to allow for specialization of the
+  code, `αx`, `αxpy`, and `αxpβy` build callable objects which have specific
+  types and which implement simple operation involving multipliers:
+
+  ```julia
+  f1 = αx(α,x)
+  f1(x) -> α*x
+  f2 = αxpy(α,x)
+  f2(x,y) -> α*x + y
+  f3 = αxpβyy(α,x,β,y)
+  f3(x,y) -> α*x + β*y
+  ```
+
+  These constructors take care of converting the multipliers to the correct
+  floating-point type.
+
+To support specific array types or to optimize the operations for given array
+types, it is sufficient to extend the specialized methods (the ones prefixed by
+`unsafe_`) and the methods that compute the norms. Specializing the method
+`zerofill!` is not mandatory as the default version shall work for all array
+types.
+
+You may have a look in the files
+[ext/NumOptBaseLoopVectorizationExt.jl](ext/NumOptBaseLoopVectorizationExt.jl)
+and [ext/NumOptBaseCudaExt.jl](ext/NumOptBaseCudaExt.jl) which respectively
+extend `NumOptBase` to use AVX loop vectorization and Cuda GPU arrays.
