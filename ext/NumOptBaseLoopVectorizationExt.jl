@@ -53,15 +53,15 @@ using Base: HWReal
     end
 
     function NumOptBase.norm1(x::StridedArray{T,N}) where {T<:HWReal,N}
-        acc = norm1(zero(eltype(x)))
+        acc = zero(eltype(x))
         @turbo for i in eachindex(x)
-            acc += norm1(x[i])
+            acc += abs(x[i])
         end
         return acc
     end
 
     function NumOptBase.norm2(x::StridedArray{T,N}) where {T<:HWReal,N}
-        acc = abs2(zero(eltype(x)))
+        acc = zero(eltype(x))
         @turbo for i in eachindex(x)
             acc += abs2(x[i])
         end
@@ -69,9 +69,9 @@ using Base: HWReal
     end
 
     function NumOptBase.norminf(x::StridedArray{T,N}) where {T<:HWReal,N}
-        r = norminf(zero(eltype(x)))
+        r = zero(eltype(x))
         @turbo for i in eachindex(x)
-            a = norminf(x[i])
+            a = abs(x[i])
             r = a > r ? a : r
         end
         return r
