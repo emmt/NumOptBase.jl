@@ -3,11 +3,15 @@ module NumOptBaseCUDAExt
 if isdefined(Base, :get_extension)
     using CUDA
     import NumOptBase
-    using NumOptBase: RealComplex, inner, norm1, norminf, convert_multiplier, unsafe_map!, unsafe_scale!
+    using NumOptBase: RealComplex, inner, convert_multiplier
+    using NumOptBase: αx, αxpy, αxmy, αxpβy
+    import NumOptBase: unsafe_copy!, unsafe_map!, unsafe_inner, norm2, norm1, norminf, zerofill!
 else
     using ..CUDA
     import ..NumOptBase
-    using ..NumOptBase: RealComplex, inner, norm1, norminf, convert_multiplier, unsafe_map!, unsafe_scale!
+    using ..NumOptBase: RealComplex, inner, convert_multiplier
+    using ..NumOptBase: αx, αxpy, αxmy, αxpβy
+    import ..NumOptBase: unsafe_copy!, unsafe_map!, unsafe_inner, norm2, norm1, norminf, zerofill!
 end
 
 flatten(A::CuArray{<:Real,1}) = A
@@ -58,147 +62,14 @@ function gpu_config(fun::CuFunction, len::Int)
     return threads, blocks
 end
 
+unsafe_copy!(dst::CuArray, x::CuArray) = copyto!(dst, x)
+zerofill!(dst::CuArray) = fill!(dst, zero(eltype(dst)))
+
 # The "device" version of a given method takes array arguments of type
 # `CuDeviceArray` and return `nothing` while the "host" version takes array
 # arguments of type `CuArray`.
 
-function unsafe_ax!(dst::CuArray{T,N},
-                    α::R, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    function func!(dst, α, x)
-        for i in @gpu_range(dst)
-            @inbounds dst[i] = α*x[i]
-        end
-        return nothing
-    end
-    kernel = @cuda launch=false func!(dst, α, x)
-    threads, blocks = gpu_config(kernel, dst)
-    kernel(dst, α, x; threads, blocks)
-    return nothing
-end
-
-function unsafe_axpy!(α::R, x::CuArray{T,N},
-                      y::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    function func!(α, x, y)
-        for i in @gpu_range(y)
-            @inbounds y[i] += α*x[i]
-        end
-        return nothing
-    end
-    kernel = @cuda launch=false func!(α, x, y)
-    threads, blocks = gpu_config(kernel, y)
-    kernel(α, x, y; threads, blocks)
-    return nothing
-end
-
-function unsafe_xpby!(dst::CuArray{T,N},
-                      x::CuArray{T,N},
-                      β::R, y::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    function func!(dst, x, β, y)
-        for i in @gpu_range(dst)
-            @inbounds dst[i] = x[i] + β*y[i]
-        end
-        return nothing
-    end
-    kernel = @cuda launch=false func!(dst, x, β, y)
-    threads, blocks = gpu_config(kernel, dst)
-    kernel(dst, x, β, y; threads, blocks)
-    return nothing
-end
-
-function unsafe_axpby!(dst::CuArray{T,N},
-                       α::R, x::CuArray{T,N},
-                       β::R, y::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    function func!(dst, α, x, β, y)
-        for i in @gpu_range(dst)
-            @inbounds dst[i] = α*x[i] + β*y[i]
-        end
-        return nothing
-    end
-    kernel = @cuda launch=false func!(dst, α, x, β, y)
-    threads, blocks = gpu_config(kernel, dst)
-    kernel(dst, α, x, β, y; threads, blocks)
-    return nothing
-end
-
-function NumOptBase.unsafe_scale!(dst::CuArray{T,N},
-                                  α::Real, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    if iszero(α)
-        fill!(dst, zero(eltype(dst)))
-    elseif isone(α)
-        dst !== x && copyto!(dst, x)
-    elseif α == -one(α)
-        unsafe_map!(-, dst, x)
-    else
-        unsafe_ax!(dst, convert_multiplier(α, x), x)
-    end
-    nothing
-end
-
-function NumOptBase.unsafe_update!(dst::CuArray{T,N},
-                                   α::Real, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    if isone(α)
-        unsafe_map!(+, dst, dst, x)
-    elseif α == -one(α)
-        unsafe_map!(-, dst, dst, x)
-    elseif !iszero(α)
-        unsafe_axpy!(convert_multiplier(α, x), x, dst)
-    end
-    nothing
-end
-
-function NumOptBase.unsafe_combine!(dst::CuArray{T,N},
-                                    α::Real, x::CuArray{T,N},
-                                    β::Real, y::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    if iszero(β)
-        unsafe_scale!(dst, α, x)
-    elseif iszero(α)
-        unsafe_scale!(dst, β, y)
-    elseif isone(α)
-        if isone(β)
-            # dst .= x .+ y
-            unsafe_map!(+, dst, x, y)
-        elseif β == -one(β)
-            # dst .= x .- y
-            unsafe_map!(-, dst, x, y)
-        else
-            # dst .= x .+ β.*y
-            unsafe_xpby!(dst, x, convert_multiplier(β, y), y)
-        end
-    else
-        # dst .= α.*x .+ β.*y
-        unsafe_axpby!(dst,
-                      convert_multiplier(α, x), x,
-                      convert_multiplier(β, y), y)
-    end
-    nothing
-end
-
-function NumOptBase.unsafe_inner(x::CuArray{T,N},
-                                 y::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    #return mapreduce(inner, +, x, y; init=inner(zero(R),zero(R)))
-    return flatten(x)'*flatten(y) # NOTE: this is a faster than mapreduce
-end
-
-function NumOptBase.unsafe_inner(w::CuArray{R,N},
-                                 x::CuArray{R,N},
-                                 y::CuArray{R,N}) where {R<:Real,N}
-    return mapreduce(inner, +, w, x, y; init=inner(zero(R),zero(R),zero(R)))
-end
-
-function NumOptBase.norm1(x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    return mapreduce(norm1, +, x; init=norm1(zero(R)))
-end
-
-function NumOptBase.norm2(x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    return sqrt(mapreduce(abs2, +, x; init=abs2(zero(R))))
-end
-
-function NumOptBase.norminf(x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    return mapreduce(norminf, max, x; init=norminf(zero(R)))
-end
-
-function NumOptBase.unsafe_map!(f::Function, dst::CuArray,
-                                x::CuArray)
+function unsafe_map!(f::Function, dst::CuArray, x::CuArray)
     function func!(f, dst, x)
         for i in @gpu_range(dst)
             @inbounds dst[i] = f(x[i])
@@ -211,8 +82,20 @@ function NumOptBase.unsafe_map!(f::Function, dst::CuArray,
     return nothing
 end
 
-function NumOptBase.unsafe_map!(f::Function, dst::CuArray,
-                                x::CuArray, y::CuArray)
+function unsafe_map!(f::αx, dst::CuArray, x::CuArray)
+    function func!(dst, α, x)
+        for i in @gpu_range(dst)
+            @inbounds dst[i] = α*x[i]
+        end
+        return nothing
+    end
+    kernel = @cuda launch=false func!(dst, f.α, x)
+    threads, blocks = gpu_config(kernel, dst)
+    kernel(dst, f.α, x; threads, blocks)
+    return nothing
+end
+
+function unsafe_map!(f::Function, dst::CuArray, x::CuArray, y::CuArray)
     function func!(f, dst, x, y)
         for i in @gpu_range(dst)
             @inbounds dst[i] = f(x[i], y[i])
@@ -223,6 +106,69 @@ function NumOptBase.unsafe_map!(f::Function, dst::CuArray,
     threads, blocks = gpu_config(kernel, dst)
     kernel(f, dst, x, y; threads, blocks)
     return nothing
+end
+
+function unsafe_map!(f::αxpy, dst::CuArray, x::CuArray, y::CuArray)
+    function func!(dst, α, x, y)
+        for i in @gpu_range(y)
+            @inbounds dst[i] = α*x[i] + y[i]
+        end
+        return nothing
+    end
+    kernel = @cuda launch=false func!(dst, f.α, x, y)
+    threads, blocks = gpu_config(kernel, y)
+    kernel(dst, f.α, x, y; threads, blocks)
+    return nothing
+end
+
+function unsafe_map!(f::αxmy, dst::CuArray, x::CuArray, y::CuArray)
+    function func!(dst, α, x, y)
+        for i in @gpu_range(y)
+            @inbounds dst[i] = α*x[i] - y[i]
+        end
+        return nothing
+    end
+    kernel = @cuda launch=false func!(dst, f.α, x, y)
+    threads, blocks = gpu_config(kernel, y)
+    kernel(dst, f.α, x, y; threads, blocks)
+    return nothing
+end
+
+function unsafe_map!(f::αxpβy, dst::CuArray, x::CuArray, y::CuArray)
+    function func!(dst, α, x, β, y)
+        for i in @gpu_range(dst)
+            @inbounds dst[i] = α*x[i] + β*y[i]
+        end
+        return nothing
+    end
+    kernel = @cuda launch=false func!(dst, f.α, x, f.β, y)
+    threads, blocks = gpu_config(kernel, dst)
+    kernel(dst, f.α, x, f.β, y; threads, blocks)
+    return nothing
+end
+
+function unsafe_inner(x::CuArray{T,N},
+                      y::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
+    #return mapreduce(inner, +, x, y; init=inner(zero(R),zero(R)))
+    return flatten(x)'*flatten(y) # NOTE: this is a faster than mapreduce
+end
+
+function unsafe_inner(w::CuArray{R,N},
+                      x::CuArray{R,N},
+                      y::CuArray{R,N}) where {R<:Real,N}
+    return mapreduce(inner, +, w, x, y; init=inner(zero(R),zero(R),zero(R)))
+end
+
+function norm1(x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
+    return mapreduce(norm1, +, x; init=norm1(zero(R)))
+end
+
+function norm2(x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
+    return sqrt(mapreduce(abs2, +, x; init=abs2(zero(R))))
+end
+
+function norminf(x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
+    return mapreduce(norminf, max, x; init=norminf(zero(R)))
 end
 
 end # module
