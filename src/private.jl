@@ -10,28 +10,89 @@ unsafe_copy!(dst::DenseArray{T,N}, x::DenseArray{T,N}) where {T,N} = begin
     return dst
 end
 
-# The following structures are a trick to make our own closure objects to
-# implement the `unsafe_ax!`, `unsafe_axpy!`, and `unsafe_axpby!` operations.
-# This is needed to avoid *lots* of allocations (at least for `unsafe_axpby!`)
-# and reach ultimate execution speed with `map!`.
+# The structures `αx`, `αxpy`, `αxmy`, and `αxpβy` are a trick to make our own
+# closure objects to implement the `unsafe_ax!`, `unsafe_axpy!`, and
+# `unsafe_axpby!` operations. This is needed to avoid *lots* of allocations
+# when using closures and anonymous functions (at least for `αxpβy`) and reach
+# ultimate execution speed with `map!`.
+
+"""
+For a scalar real `α` and an array `x`:
+
+    f = NumOptBase.αx(α, x)
+
+yields a callable object such that:
+
+    f(xᵢ) -> α*xᵢ
+
+with `α` converted to a floating-point type suitable for multiplication by the
+elements of `x` (see [`NumOptBase.convert_multiplier`](@ref)). The object `f`
+may be used with [`NumOptBase.unsafe_map!`](@ref).
+
+"""
 struct αx{A} <: Function
     α::A
 end
 @inline (f::αx)(x) = f.α*x
 αx(α::Real, x::AbstractArray) = αx(convert_multiplier(α, x))
 
+"""
+For a scalar real `α` and an array `x`:
+
+    f = NumOptBase.αxpy(α, x)
+
+yields a callable object such that:
+
+    f(xᵢ, yᵢ) -> α*xᵢ + yᵢ
+
+with `α` converted to a floating-point type suitable for multiplication by the
+elements of `x` (see [`NumOptBase.convert_multiplier`](@ref)). The object `f`
+may be used with [`NumOptBase.unsafe_map!`](@ref).
+
+"""
 struct αxpy{A} <: Function
     α::A
 end
 @inline (f::αxpy)(x, y) = f.α*x + y
 αxpy(α::Real, x::AbstractArray) = αxpy(convert_multiplier(α, x))
 
+"""
+
+For a scalar real `α` and an array `x`:
+
+    f = NumOptBase.αxmy(α, x)
+
+yields a callable object such that:
+
+    f(xᵢ, yᵢ) -> α*xᵢ - yᵢ
+
+with `α` converted to a floating-point type suitable for multiplication by the
+elements of `x` (see [`NumOptBase.convert_multiplier`](@ref)). The object `f`
+may be used with [`NumOptBase.unsafe_map!`](@ref).
+
+"""
 struct αxmy{A} <: Function
     α::A
 end
 @inline (f::αxmy)(x, y) = f.α*x - y
 αxmy(α::Real, x::AbstractArray) = αxpy(convert_multiplier(α, x))
 
+"""
+
+For scalar reals `α` and `β` and arrays `x` and `y`:
+
+    f = NumOptBase.αxpβy(α, x, β, y)
+
+yields a callable object such that:
+
+    f(xᵢ, yᵢ) -> α*xᵢ + β*yᵢ
+
+with `α` and `β` converted to a floating-point type suitable for respective
+multiplication by the elements of `x` and `y` (see
+[`NumOptBase.convert_multiplier`](@ref)). The object `f` may be used with
+[`NumOptBase.unsafe_map!`](@ref).
+
+"""
 struct αxpβy{A,B} <: Function
     α::A
     β::B
@@ -39,69 +100,6 @@ end
 @inline (f::αxpβy)(x, y) = f.α*x + f.β*y
 αxpβy(α::Real, x::AbstractArray, β::Real, y::AbstractArray) =
     αxpβy(convert_multiplier(α, x), convert_multiplier(β, y))
-
-"""
-    NumOptBase.unsafe_ax!(dst, α, x)
-
-executes the low-level operation:
-
-    dst[i] = α*x[i]
-
-for all indices `i` of `dst` and `x` and assuming without checking that these
-arguments have the same axes. The scalar `α` must not be zero and must have
-been converted to a suitable floating-point type by the caller.
-
-None of these assumptions are checked, this method is thus *unsafe* and shall
-not be directly called but it may be extended for specific array types. By
-default, it uses SIMD vectorization for strided arrays and calls
-[`NumOptBase.unsafe_map!`](@ref) for other arrays.
-
-"""
-unsafe_ax!(dst::AbstractArray, α::Real, x::AbstractArray) =
-    # FIXME: unsafe_map!(xᵢ -> α*xᵢ, dst, x)
-    unsafe_map!(αx(α), dst, x)
-
-"""
-    NumOptBase.unsafe_axpy!(dst, α, x, y)
-
-executes the low-level operation:
-
-    dst[i] = α*x[i] + y[i]
-
-for all indices `i` of `dst`, `x`, and `y` and assuming without checking that
-these arguments have the same axes. The scalar `α` must not be zero and must
-have been converted to a suitable floating-point type by the caller.
-
-None of these assumptions are checked, this method is thus *unsafe* and shall
-not be directly called but it may be extended for specific array types. By
-default, it uses SIMD vectorization for strided arrays and calls
-[`NumOptBase.unsafe_map!`](@ref) for other arrays.
-
-"""
-unsafe_axpy!(dst::AbstractArray, α::Real, x::AbstractArray, y::AbstractArray) =
-    # FIXME: unsafe_map!((xᵢ, yᵢ) -> α*xᵢ + yᵢ, dst, x, y)
-    unsafe_map!(αxpy(α), dst, x, y)
-
-"""
-    NumOptBase.unsafe_axpby!(dst, α, x, β, y)
-
-executes the low-level operation:
-
-    dst[i] = α*x[i] + β*y[i]
-
-for all indices `i` of `dst`, `x`, and `y` and assuming without checking that
-these arguments have the same axes. The scalars `α` and `β` must not be zero
-and must have been converted to a suitable floating-point type by the caller.
-
-None of these assumptions are checked, this method is thus *unsafe* and shall
-not be directly called but it may be extended for specific array types. By
-default, it uses SIMD vectorization for strided arrays and calls
-[`NumOptBase.unsafe_map!`](@ref) for other arrays.
-
-"""
-unsafe_axpby!(dst::AbstractArray, α::Real, x::AbstractArray, β::Real, y::AbstractArray) =
-    # FIXME: unsafe_map!((xᵢ, yᵢ) -> α*xᵢ + β*yᵢ, dst, x, y)
-    unsafe_map!(αxpβy(α, β), dst, x, y)
 
 """
     NumOptBase.unsafe_map!(f, dst, args...)
