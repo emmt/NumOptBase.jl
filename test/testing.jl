@@ -110,18 +110,30 @@ function test_operations(;
         y = wrapper(y_ref)
         z = similar(x)
         @testset "norm1" begin
+            let xᵢ = first(x), res = @inferred NumOptBase.norm1(xᵢ)
+                @test typeof(res) === real(T)
+                @test res ≈ ref_norm1(xᵢ)
+            end
             let res = @inferred NumOptBase.norm1(x)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norm1(x_ref)
             end
         end
         @testset "norm2" begin
+            let xᵢ = first(x), res = @inferred NumOptBase.norm2(xᵢ)
+                @test typeof(res) === real(T)
+                @test res ≈ ref_norm2(xᵢ)
+            end
             let res = @inferred NumOptBase.norm2(x)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norm2(x_ref)
             end
         end
         @testset "norminf" begin
+            let xᵢ = first(x), res = @inferred NumOptBase.norminf(xᵢ)
+                @test typeof(res) === real(T)
+                @test res ≈ ref_norminf(xᵢ)
+            end
             let res = @inferred NumOptBase.norminf(x)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norminf(x_ref)
@@ -139,6 +151,20 @@ function test_operations(;
                     @test typeof(res) === real(T)
                     @test res ≈ ref_inner(w_ref, x_ref, y_ref)
                 end
+            end
+        end
+        @testset "zero-fill" begin
+            copyto!(z, x)
+            let res = @inferred NumOptBase.zerofill!(z)
+                @test res === z
+                @test all(iszero, z)
+            end
+        end
+        @testset "copy" begin
+            NumOptBase.zerofill!(z)
+            let res = @inferred NumOptBase.copy!(z, x)
+                @test res === z
+                @test z == x
             end
         end
         @testset "scale! α = $α" for α in alphas
