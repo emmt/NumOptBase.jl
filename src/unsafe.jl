@@ -3,7 +3,7 @@ unsafe_copy!(dst::AbstractArray, x::AbstractArray) = copyto!(dst, x)
 unsafe_copy!(dst::DenseArray{T,N}, x::DenseArray{T,N}) where {T,N} = begin
     if isbitstype(T)
         nbytes = sizeof(T)*length(dst)
-        @ccall memcpy(dst::Ptr{Cvoid}, x::Ptr{Cvoid}, nbytes::Csize_t)::Ptr{Cvoid}
+        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), dst, x, nbytes)
     else
         copyto!(dst, x)
     end

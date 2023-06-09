@@ -110,7 +110,7 @@ zerofill!(dst::AbstractArray{T}) where {T} = fill!(dst, zero(T))
 function zerofill!(dst::DenseArray{T}) where {T}
     if isbitstype(T)
         nbytes = sizeof(T)*length(dst)
-        @ccall memset(dst::Ptr{Cvoid}, 0::Cint, nbytes::Csize_t)::Ptr{Cvoid}
+        ccall(:memset, Ptr{Cvoid}, (Ptr{Cvoid}, Cint, Csize_t), dst, 0, nbytes)
     else
         fill!(dst, zero(T))
     end

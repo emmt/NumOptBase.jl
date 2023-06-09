@@ -1,5 +1,9 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.9
+
+- Use `ccall` instead of `@ccall` for Julia < 1.5.
+
 # Version 0.1.8
 
 - Re-write splitting in low/high level methods.
