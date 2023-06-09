@@ -268,6 +268,64 @@ for opt in (:debug, :inbounds, :simd, :turbo)
 
 end
 
+function copy_memcpy!(dst::AbstractArray{T,N}, src::AbstractArray{T,N}) where {T,N}
+    @assert isbitstype(T)
+    @assert_same_axes dst src
+    nbytes = length(dst)*sizeof(T)
+    ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), dst, src, nbytes)
+    return dst
+end
+function copy_inbounds!(dst::AbstractArray{T,N}, src::AbstractArray{T,N}) where {T,N}
+    @assert_same_axes dst src
+    @inbounds for i in eachindex(dst, src)
+        dst[i] = src[i]
+    end
+    return dst
+end
+function copy_simd!(dst::AbstractArray{T,N}, src::AbstractArray{T,N}) where {T,N}
+    @assert_same_axes dst src
+    @inbounds @simd for i in eachindex(dst, src)
+        dst[i] = src[i]
+    end
+    return dst
+end
+function copy_turbo!(dst::AbstractArray{T,N}, src::AbstractArray{T,N}) where {T,N}
+    @assert_same_axes dst src
+    @turbo for i in eachindex(dst, src)
+        dst[i] = src[i]
+    end
+    return dst
+end
+
+zerofill_fill!(A::AbstractArray{T}) where {T} = fill!(A, zero(T))
+function zerofill_memset!(A::AbstractArray{T}) where {T}
+    @assert isbitstype(T)
+    nbytes = length(A)*sizeof(T)
+    ccall(:memset, Ptr{Cvoid}, (Ptr{Cvoid}, Cint, Csize_t), A, 0, nbytes)
+    return A
+end
+function zerofill_inbounds!(A::AbstractArray{T}) where {T}
+    val = zero(T)
+    @inbounds for i in eachindex(A)
+        A[i] = val
+    end
+    return A
+end
+function zerofill_simd!(A::AbstractArray{T}) where {T}
+    val = zero(T)
+    @inbounds @simd for i in eachindex(A)
+        A[i] = val
+    end
+    return A
+end
+function zerofill_turbo!(A::AbstractArray{T}) where {T}
+    val = zero(T)
+    @turbo for i in eachindex(A)
+        A[i] = val
+    end
+    return A
+end
+
 runtests(; T::Type=Float32, dims::Dims=(10_000,), kwds...) =
     runtests(rand(T, dims), rand(T, dims), rand(T, dims); kwds...)
 
@@ -332,6 +390,26 @@ function runtests(w::AbstractArray, x::AbstractArray, y::AbstractArray;
         print("  vnorminf(InBounds,  x) "); @btime vnorminf($InBounds,  $x)
         print("  vnorminf(Vectorize, x) "); @btime vnorminf($Vectorize, $x)
         print("  vnorminf(Turbo,     x) "); @btime vnorminf($Turbo,     $x)
+    end
+    if :all ∈ ops || :zerofill ∈ ops
+        println()
+        println("Zero-filling")
+        print("  NumOptBase.zerofill!( z) "); @btime NumOptBase.zerofill!($z)
+        print("  zerofill_fill!(       z) "); @btime zerofill_fill!(      $z)
+        print("  zerofill_memset!(     z) "); @btime zerofill_memset!(    $z)
+        print("  zerofill_inbounds!(   z) "); @btime zerofill_inbounds!(  $z)
+        print("  zerofill_simd!(       z) "); @btime zerofill_simd!(      $z)
+        print("  zerofill_turbo!(      z) "); @btime zerofill_turbo!(     $z)
+    end
+    if :all ∈ ops || :copy ∈ ops
+        println()
+        println("Copying")
+        print("  NumOptBase.copy!(z, x) "); @btime NumOptBase.copy!($z, $x)
+        print("  copyto!(         z, x) "); @btime copyto!(         $z, $x)
+        print("  copy_memcpy!(    z, x) "); @btime copy_memcpy!(    $z, $x)
+        print("  copy_inbounds!(  z, x) "); @btime copy_inbounds!(  $z, $x)
+        print("  copy_simd!(      z, x) "); @btime copy_simd!(      $z, $x)
+        print("  copy_turbo!(     z, x) "); @btime copy_turbo!(     $z, $x)
     end
     if :all ∈ ops || :scale ∈ ops
         println()
