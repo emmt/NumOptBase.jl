@@ -169,8 +169,9 @@ In the above table and hereinafter, `dst`, `w`, `x`, and `y` denote arrays
 and function calls are assumed to be done element-wise.
 
 These public methods check their arguments (for having the same axes) and call
-one of the specialized methods listed below depending on the operation and
-on the specific values of the multipliers `α` and `β`
+one of the specialized methods listed below depending on the operation, on the
+type of the array arguments, and on the specific values of the multipliers `α`
+and `β`.
 
 | Operation         | Specialized method                    | Remarks                  |
 |:------------------|:--------------------------------------|:-------------------------|
@@ -194,10 +195,11 @@ on the specific values of the multipliers `α` and `β`
 
 The prefix `unsafe_` means that the axes of arguments have been checked to be
 compatible. Any scalar argument (`α` and `β`) shall never be zero and shall
-have been converted to the correct floating-point type. The code of the
-high-level methods shall be simple enough for these methods to be inlined. This
-may lead to some optimizations (when the multipliers have specific values like
-0 or ±1).
+have been converted to the correct floating-point type (this conversion is
+automatically done by the constructors `αx`, `αxpy`, `αxmy`, and `αxpβy`). The
+code of the high-level methods shall be simple enough for these methods to be
+inlined. This may lead to some optimizations (when the multipliers have
+specific values like 0 or ±1).
 
 Remarks:
 
@@ -214,20 +216,24 @@ Remarks:
 
 - It can be seen that a great deal of cases are handled by `unsafe_map!`. To
   avoid some overheads with closures and to allow for specialization of the
-  code, `αx`, `αxpy`, and `αxpβy` build callable objects which have specific
-  types and which implement simple operation involving multipliers:
+  code, `αx`, `αxpy`, `αxmy`, and `αxpβy` build callable objects which have
+  specific types and which implement simple operation involving multipliers:
 
   ```julia
   f1 = αx(α,x)
-  f1(x) -> α*x
+  f1(xᵢ) -> α*xᵢ
   f2 = αxpy(α,x)
-  f2(x,y) -> α*x + y
-  f3 = αxpβyy(α,x,β,y)
-  f3(x,y) -> α*x + β*y
+  f2(xᵢ,yᵢ) -> α*xᵢ + yᵢ
+  f3 = αxmy(α,x)
+  f3(xᵢ,yᵢ) -> α*x - y
+  f4 = αxpβyy(α,x,β,y)
+  f4(xᵢ,yᵢ) -> α*xᵢ + β*yᵢ
   ```
 
-  These constructors take care of converting the multipliers to the correct
-  floating-point type.
+  where `xᵢ` and `yᵢ` denote an entry of `x` and `y`. These constructors take
+  care of converting the multipliers `α` and `β`to the correct floating-point
+  type. This the reason to provide arrays `x` and `y` along with their
+  respective multiplier to the constructors.
 
 To support specific array types or to optimize the operations for given array
 types, it is sufficient to extend the specialized methods (the ones prefixed by
@@ -237,5 +243,5 @@ types.
 
 You may have a look in the files
 [ext/NumOptBaseLoopVectorizationExt.jl](ext/NumOptBaseLoopVectorizationExt.jl)
-and [ext/NumOptBaseCudaExt.jl](ext/NumOptBaseCudaExt.jl) which respectively
+and [ext/NumOptBaseCUDAExt.jl](ext/NumOptBaseCUDAExt.jl) which respectively
 extend `NumOptBase` to use AVX loop vectorization and Cuda GPU arrays.
