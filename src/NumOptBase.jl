@@ -14,7 +14,7 @@ if !isdefined(Base, :get_extension)
 end
 
 include("public.jl")
-include("unsafe.jl")
+include("private.jl")
 
 function __init__()
     @static if !isdefined(Base, :get_extension)
