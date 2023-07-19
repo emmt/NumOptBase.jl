@@ -10,7 +10,6 @@ else
     using ..NumOptBase: inner, norm1, norminf
 end
 
-using Base: HWReal
 
 # The @turbo macro was introduced in LoopVectorization 0.12.22 to replace @avx.
 # We could either always use the @turbo macro in the code and, if it does not
@@ -28,10 +27,13 @@ using Base: HWReal
 # LoopVectorization ~ 0.8), so we just skip improved loop vectorization if the
 # @turbo macro is absent.
 
-@static if isdefined(@__MODULE__, Symbol("@turbo"))
+const can_avx = isdefined(@__MODULE__, Symbol("@turbo")) &&
+    isdefined(LoopVectorization, :ArrayInterface) &&
+    isdefined(LoopVectorization.ArrayInterface, :can_avx) ?
+    LoopVectorization.ArrayInterface.can_avx : nothing
 
-    const can_avx = LoopVectorization.ArrayInterface.can_avx
-    const can_turbo = LoopVectorization.can_turbo
+@static if can_avx !== nothing
+    using Base: HWReal
 
     function NumOptBase.unsafe_inner(x::StridedArray{T,N},
                                      y::StridedArray{T,N}) where {T<:HWReal,N}
@@ -111,9 +113,9 @@ using Base: HWReal
 else
 
     @warn """We are currently skipping improved optimizations by `LoopVectorization`
-        because the `@turbo` macro is absent. This maybe due to your Julia version ($VERSION)
-        being too old or to an outdated version of the `LoopVectorization` package.
-        Please consider upgrading."""
+        because the `@turbo` macro and/or `can_avx` method are absent. This maybe due
+        to your Julia version ($VERSION) being too old or to an outdated version of
+        the `LoopVectorization` package. Please consider upgrading."""
 
 end
 
