@@ -1,5 +1,10 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.10
+
+- `NumOptBase.scale!(α,x)` and `NumOptBase.scale!(x,α)` are shortcuts to
+  `NumOptBase.scale!(x,α,x)`.
+
 # Version 0.1.9
 
 - Use `ccall` instead of `@ccall` for Julia < 1.5.

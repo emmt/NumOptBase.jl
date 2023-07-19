@@ -172,6 +172,14 @@ function test_operations(;
                 @test res === z
                 @test copyto!(tmp, res) ≈ (@. α*x_ref)
             end
+            let res = @inferred NumOptBase.scale!(α, copyto!(z, x))
+                @test res === z
+                @test res ≈ (@. α*x_ref)
+            end
+            let res = @inferred NumOptBase.scale!(copyto!(z, x), α)
+                @test res === z
+                @test res ≈ (@. α*x_ref)
+            end
         end
         @testset "multiply!" begin
             let res = @inferred NumOptBase.multiply!(z, x, y)

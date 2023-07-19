@@ -140,6 +140,26 @@ function scale!(dst::AbstractArray{T,N},
 end
 
 """
+    NumOptBase.scale!(α, x) -> x
+    NumOptBase.scale!(x, α) -> x
+
+overwrites `x` with `α⋅x` and returns `x`. If `iszero(α)` holds, zero-fill `x`
+whatever its contents.
+
+"""
+scale!(α::Real, x::AbstractArray) = scale!(x, α)
+function scale!(x::AbstractArray, α::Real)
+    if iszero(α)
+        zerofill!(x)
+    elseif α == -one(α)
+        unsafe_map!(-, x, x)
+    elseif !isone(α)
+        unsafe_map!(αx(α, x), x, x)
+    end
+    return x
+end
+
+"""
     NumOptBase.update!(dst, α, x) -> dst
 
 overwrites destination `dst` with `dst + α⋅x` and returns `dst`. This is a shortcut
