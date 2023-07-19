@@ -7,6 +7,7 @@ version = "0.1.9"
 ArrayTools = "1dc0ca97-c5ce-4e77-ac6d-c576ac9d7f27"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
+TypeUtils = "c3b1956e-8857-4d84-9b79-890df85b1e67"
 
 [weakdeps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"

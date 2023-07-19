@@ -266,16 +266,6 @@ the same as that of the elements of `x`.
 convert_multiplier(α::Real, x::AbstractArray) = as(floating_point_type(x), α)
 
 """
-    NumOptBase.as(T, x)
-
-converts `x` to type `T`. The result is type-asserted to be of type `T`. If `x
-isa T` holds, `x` is returned unchanged.
-
-"""
-as(::Type{T}, x::T) where {T} = x
-as(::Type{T}, x) where {T} = convert(T, x)::T
-
-"""
     NumOptBase.floating_point_type(x)
 
 yields the floating-point type corresponding to the numeric type or value `x`.

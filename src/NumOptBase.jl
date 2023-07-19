@@ -6,6 +6,7 @@ optimization methods.
 """
 module NumOptBase
 
+using TypeUtils
 using ArrayTools: @assert_same_axes
 using LinearAlgebra
 

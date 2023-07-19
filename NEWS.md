@@ -5,7 +5,9 @@
 - `NumOptBase.scale!(α,x)` and `NumOptBase.scale!(x,α)` are shortcuts to
   `NumOptBase.scale!(x,α,x)`.
 
-- Extend `convert` for ``NumOptBase.Diag`.
+- Extend `convert` for `NumOptBase.Diag`.
+
+- Use `TypeUtils` instead of our own `NumOptBase.as` method.
 
 # Version 0.1.9
 
