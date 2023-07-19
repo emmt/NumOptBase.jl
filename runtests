@@ -4,7 +4,7 @@ dir=`dirname "$exe"`
 for exe in julia-1.{2..9}; do
     echo "############## $exe"
     rm -f "$dir/Manifest.toml"
-    $exe --project="$dir" --check-bounds=yes --color=yes \
+    $exe --project="$dir" --check-bounds=yes --depwarn=yes --color=yes \
         -e 'using Pkg; Pkg.instantiate(); include("test/runtests.jl")'
     rm -f "$dir/Manifest.toml"
 done
