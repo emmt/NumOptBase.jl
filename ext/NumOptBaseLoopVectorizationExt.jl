@@ -32,7 +32,8 @@ const can_avx = isdefined(@__MODULE__, Symbol("@turbo")) &&
     isdefined(LoopVectorization.ArrayInterface, :can_avx) ?
     LoopVectorization.ArrayInterface.can_avx : nothing
 
-@static if can_avx !== nothing
+@static if false # FIXME: can_avx !== nothing
+
     using Base: HWReal
 
     function NumOptBase.unsafe_inner(x::StridedArray{T,N},
