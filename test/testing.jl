@@ -1,6 +1,7 @@
 module TestingNumOptBase
 
 using NumOptBase
+using LinearAlgebra
 using Test
 using Base: @propagate_inbounds
 
@@ -198,6 +199,41 @@ function test_operations(;
                 @test res === z
                 @test copyto!(tmp, res) ≈ (@. α*x_ref + β*y_ref)
             end
+        end
+    end
+end
+
+function test_operators()
+    Diag = NumOptBase.Diag
+    apply! = NumOptBase.apply!
+    @testset "Operators" begin
+        T = Float32
+        dims = (2,3,4)
+        N = length(dims)
+        w = rand(T, dims)
+        x = rand(T, dims)
+        y = similar(x)
+        z = similar(x)
+        D = @inferred Diag(w)
+        @test diag(D) === w
+        @test apply!(z, D, x) ≈ w .* x
+        @test convert(Diag, D) === D
+        @test convert(typeof(D), D) === D
+        @test convert(Diag{eltype(diag(D))}, D) === D
+        @test convert(Diag{eltype(diag(D)),ndims(diag(D))}, D) === D
+        @test convert(Diag{eltype(diag(D)),ndims(diag(D)),typeof(diag(D))}, D) === D
+        @test_throws Exception convert(Diag{eltype(diag(D)),ndims(diag(D))+1}, D)
+        let A = @inferred convert(Diag{Float64}, D)
+            @test diag(A) ≈ diag(D)
+            @test eltype(diag(A)) === Float64
+         end
+        let A = @inferred convert(Diag{Float64,N}, D)
+            @test diag(A) ≈ diag(D)
+            @test eltype(diag(A)) === Float64
+        end
+        let A = @inferred convert(Diag{Float64,N,Array{Float64,N}}, D)
+            @test diag(A) ≈ diag(D)
+            @test eltype(diag(A)) === Float64
         end
     end
 end

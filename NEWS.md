@@ -5,6 +5,8 @@
 - `NumOptBase.scale!(α,x)` and `NumOptBase.scale!(x,α)` are shortcuts to
   `NumOptBase.scale!(x,α,x)`.
 
+- Extend `convert` for ``NumOptBase.Diag`.
+
 # Version 0.1.9
 
 - Use `ccall` instead of `@ccall` for Julia < 1.5.

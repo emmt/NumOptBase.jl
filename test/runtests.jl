@@ -7,6 +7,7 @@ end
 @testset "NumOptBase package" begin
     TestingNumOptBase.test_utilities()
     TestingNumOptBase.test_operations()
+    TestingNumOptBase.test_operators()
 
     if !isdefined(Main,:LoopVectorization)
         using LoopVectorization

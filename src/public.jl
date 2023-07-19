@@ -33,8 +33,20 @@ yields an object behaving as a diagonal linear mapping for the
 """
 struct Diag{T,N,A<:AbstractArray{T,N}}
     diag::A
+    Diag{T,N,A}(x::A) where {T,N,A<:AbstractArray{T,N}} = new{T,N,A}(x)
 end
 LinearAlgebra.diag(A::Diag) = A.diag
+
+# Other constructors.
+Diag(x::A) where {T,N,A<:AbstractArray{T,N}} = Diag{T,N,A}(x)
+Diag{T}(x::AbstractArray{T}) where {T} = Diag(x)
+Diag{T}(x::AbstractArray) where {T} = Diag(convert(AbstractArray{T}, x))
+Diag{T,N}(x::AbstractArray{T,N}) where {T,N} = Diag(x)
+Diag{T,N}(x::AbstractArray) where {T,N} = Diag(convert(AbstractArray{T,N}, x))
+Diag{T,N,A}(x::AbstractArray) where {T,N,A<:AbstractArray{T,N}} = Diag(convert(A, x))
+
+Base.convert(::Type{T}, x::T) where {T<:Diag} = x
+Base.convert(::Type{T}, x) where {T<:Diag} = T(diag(x))
 
 """
     NumOptBase.apply!(dst, f, args...) -> dst
