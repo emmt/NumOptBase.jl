@@ -8,10 +8,13 @@ export
 using BenchmarkTools
 using ArrayTools: @assert_same_axes
 using NumOptBase
-using NumOptBase: convert_multiplier
+using NumOptBase: convert_multiplier, @vectorize
 using LoopVectorization
 using MayOptimize
 using Unitless
+
+const use_avx   = isdefined(@__MODULE__, Symbol("@avx"))
+const use_turbo = isdefined(@__MODULE__, Symbol("@turbo"))
 
 abstract type Turbo <: Vectorize end
 
@@ -27,18 +30,36 @@ macro vect(P, blk)
     blk0 = esc(:($blk))
     blk1 = esc(:(@inbounds $blk))
     blk2 = esc(:(@inbounds @simd $blk))
-    blk3 = esc(:(@turbo $blk))
-    quote
-        if $opt <: Turbo
-            $blk3
-        elseif $opt <: Vectorize
-            $blk2
-        elseif $opt <: InBounds
-            $blk1
-        elseif $opt <: Debug
-            $blk0
+    if use_turbo || use_avx
+        if use_turbo
+            blk3 = esc(:(@turbo $blk))
         else
-            Base.error("argument `P` of macro `@vect` is not a valid optimization level")
+            blk3 = esc(:(@avx $blk))
+        end
+        quote
+            if $opt <: Turbo
+                $blk3
+            elseif $opt <: Vectorize
+                $blk2
+            elseif $opt <: InBounds
+                $blk1
+            elseif $opt <: Debug
+                $blk0
+            else
+                Base.error("argument `P` of macro `@vect` is not a valid optimization level")
+            end
+        end
+    else
+        quote
+            if $opt <: Vectorize
+                $blk2
+            elseif $opt <: InBounds
+                $blk1
+            elseif $opt <: Debug
+                $blk0
+            else
+                Base.error("argument `P` of macro `@vect` is not a valid optimization level")
+            end
         end
     end
 end
@@ -46,18 +67,11 @@ end
 vdot(x::AbstractArray, y::AbstractArray) = NumOptBase.inner(x, y)
 vdot(w::AbstractArray, x::AbstractArray, y::AbstractArray) = NumOptBase.inner(x, y)
 
-vectorize(opt::Symbol, loop::Expr) =
-    opt === :debug    ? loop :
-    opt === :inbounds ? :(@inbounds $loop) :
-    opt === :simd     ? :(@inbounds @simd $loop) :
-    opt === :turbo    ? :(@turbo $loop) :
-    error("unknown loop optimizer `$opt`")
-
-macro vectorize(opt::Symbol, loop::Expr)
-    esc(vectorize(opt, loop))
-end
-
 for opt in (:debug, :inbounds, :simd, :turbo)
+    if opt === :turbo && ! use_turbo
+        use_avx || continue
+        opt = :avx
+    end
     @eval begin
         function $(Symbol(:vdot_,opt))(x::AbstractArray{T,N},
                                        y::AbstractArray{T,N}) where {T<:Real,N}
@@ -109,6 +123,11 @@ vnorm2(x::AbstractArray) =  NumOptBase.norm2(x)
 vnorminf(x::AbstractArray) =  NumOptBase.norminf(x)
 
 for opt in (:debug, :inbounds, :simd, :turbo)
+    if opt === :turbo && ! use_turbo
+        use_avx || continue
+        opt = :avx
+    end
+    (opt !== :turbo) || use_turbo || use_avx || continue
     @eval begin
 
         function $(Symbol(:vnorm1_,opt))(x::AbstractArray{T,N}) where {T<:Real,N}
@@ -223,7 +242,10 @@ function vcombine!(::Type{L},
 end
 
 for opt in (:debug, :inbounds, :simd, :turbo)
-
+    if opt === :turbo && ! use_turbo
+        use_avx || continue
+        opt = :avx
+    end
     @eval function $(Symbol(:vscale_,opt,:(!)))(dst::AbstractArray{T,N},
                                                 α::Real, x::AbstractArray{T,N}) where {T,N}
         @assert_same_axes dst x
@@ -289,12 +311,22 @@ function copy_simd!(dst::AbstractArray{T,N}, src::AbstractArray{T,N}) where {T,N
     end
     return dst
 end
-function copy_turbo!(dst::AbstractArray{T,N}, src::AbstractArray{T,N}) where {T,N}
-    @assert_same_axes dst src
-    @turbo for i in eachindex(dst, src)
-        dst[i] = src[i]
+@static if use_turbo
+    function copy_turbo!(dst::AbstractArray{T,N}, src::AbstractArray{T,N}) where {T,N}
+        @assert_same_axes dst src
+        @turbo for i in eachindex(dst, src)
+            dst[i] = src[i]
+        end
+        return dst
     end
-    return dst
+elseif use_avx
+    function copy_turbo!(dst::AbstractArray{T,N}, src::AbstractArray{T,N}) where {T,N}
+        @assert_same_axes dst src
+        @avx for i in eachindex(dst, src)
+            dst[i] = src[i]
+        end
+        return dst
+    end
 end
 
 zerofill_fill!(A::AbstractArray{T}) where {T} = fill!(A, zero(T))
@@ -318,12 +350,22 @@ function zerofill_simd!(A::AbstractArray{T}) where {T}
     end
     return A
 end
-function zerofill_turbo!(A::AbstractArray{T}) where {T}
-    val = zero(T)
-    @turbo for i in eachindex(A)
-        A[i] = val
+@static if use_turbo
+    function zerofill_turbo!(A::AbstractArray{T}) where {T}
+        val = zero(T)
+        @turbo for i in eachindex(A)
+            A[i] = val
+        end
+        return A
     end
-    return A
+elseif use_avx
+    function zerofill_turbo!(A::AbstractArray{T}) where {T}
+        val = zero(T)
+        @avx for i in eachindex(A)
+            A[i] = val
+        end
+        return A
+    end
 end
 
 runtests(; T::Type=Float32, dims::Dims=(10_000,), kwds...) =
@@ -335,129 +377,171 @@ function runtests(w::AbstractArray, x::AbstractArray, y::AbstractArray;
     if ops isa Symbol
         ops = (ops,)
     end
+    n = length(x)
     z = similar(x)
     if :all ∈ ops || :inner ∈ ops
-        println("Inner product")
-        print("  NumOptBase.inner(  x,y) "); @btime NumOptBase.inner(    $x, $y)
-        print("  vdot_debug(        x,y) "); @btime vdot_debug(          $x, $y)
-        print("  vdot_inbounds(     x,y) "); @btime vdot_inbounds(       $x, $y)
-        print("  vdot_simd(         x,y) "); @btime vdot_simd(           $x, $y)
-        print("  vdot_turbo(        x,y) "); @btime vdot_turbo(          $x, $y)
-        print("  vdot(InBounds,     x,y) "); @btime vdot($InBounds,      $x, $y)
-        print("  vdot(Vectorize,    x,y) "); @btime vdot($Vectorize,     $x, $y)
-        print("  vdot(Turbo,        x,y) "); @btime vdot($Turbo,         $x, $y)
-        print("  NumOptBase.inner(w,x,y) "); @btime NumOptBase.inner($w, $x, $y)
-        print("  vdot_debug(      w,x,y) "); @btime vdot_debug(      $w, $x, $y)
-        print("  vdot_inbounds(   w,x,y) "); @btime vdot_inbounds(   $w, $x, $y)
-        print("  vdot_simd(       w,x,y) "); @btime vdot_simd(       $w, $x, $y)
-        print("  vdot_turbo(      w,x,y) "); @btime vdot_turbo(      $w, $x, $y)
-        print("  vdot(InBounds,   w,x,y) "); @btime vdot($InBounds,  $w, $x, $y)
-        print("  vdot(Vectorize,  w,x,y) "); @btime vdot($Vectorize, $w, $x, $y)
-        print("  vdot(Turbo,      w,x,y) "); @btime vdot($Turbo,     $w, $x, $y)
+        println("Inner product (≈ $(2n) or $(3n) ops)")
+        print(    "  NumOptBase.inner(  x,y) "); @btime NumOptBase.inner(    $x, $y)
+        print(    "  vdot_debug(        x,y) "); @btime vdot_debug(          $x, $y)
+        print(    "  vdot_inbounds(     x,y) "); @btime vdot_inbounds(       $x, $y)
+        print(    "  vdot_simd(         x,y) "); @btime vdot_simd(           $x, $y)
+        if use_turbo || use_avx
+            print("  vdot_turbo(        x,y) "); @btime vdot_turbo(          $x, $y)
+        end
+        print(    "  vdot(InBounds,     x,y) "); @btime vdot($InBounds,      $x, $y)
+        print(    "  vdot(Vectorize,    x,y) "); @btime vdot($Vectorize,     $x, $y)
+        if use_turbo || use_avx
+            print("  vdot(Turbo,        x,y) "); @btime vdot($Turbo,         $x, $y)
+        end
+        print(    "  NumOptBase.inner(w,x,y) "); @btime NumOptBase.inner($w, $x, $y)
+        print(    "  vdot_debug(      w,x,y) "); @btime vdot_debug(      $w, $x, $y)
+        print(    "  vdot_inbounds(   w,x,y) "); @btime vdot_inbounds(   $w, $x, $y)
+        print(    "  vdot_simd(       w,x,y) "); @btime vdot_simd(       $w, $x, $y)
+        if use_turbo || use_avx
+            print("  vdot_turbo(      w,x,y) "); @btime vdot_turbo(      $w, $x, $y)
+        end
+        print(    "  vdot(InBounds,   w,x,y) "); @btime vdot($InBounds,  $w, $x, $y)
+        print(    "  vdot(Vectorize,  w,x,y) "); @btime vdot($Vectorize, $w, $x, $y)
+        if use_turbo || use_avx
+            print("  vdot(Turbo,      w,x,y) "); @btime vdot($Turbo,     $w, $x, $y)
+        end
     end
     if :all ∈ ops || :norm ∈ ops || :norm1 ∈ ops
         println()
-        println("ℓ₁ norm")
-        print("  NumOptBase.norm1( x) "); @btime NumOptBase.norm1(  $x)
-        print("  vnorm1_debug(     x) "); @btime vnorm1_debug(      $x)
-        print("  vnorm1_inbounds(  x) "); @btime vnorm1_inbounds(   $x)
-        print("  vnorm1_simd(      x) "); @btime vnorm1_simd(       $x)
-        print("  vnorm1_turbo(     x) "); @btime vnorm1_turbo(      $x)
-        print("  vnorm1(InBounds,  x) "); @btime vnorm1($InBounds,  $x)
-        print("  vnorm1(Vectorize, x) "); @btime vnorm1($Vectorize, $x)
-        print("  vnorm1(Turbo,     x) "); @btime vnorm1($Turbo,     $x)
+        println("ℓ₁ norm (≈ $(2n) ops)")
+        print(    "  NumOptBase.norm1( x) "); @btime NumOptBase.norm1(  $x)
+        print(    "  vnorm1_debug(     x) "); @btime vnorm1_debug(      $x)
+        print(    "  vnorm1_inbounds(  x) "); @btime vnorm1_inbounds(   $x)
+        print(    "  vnorm1_simd(      x) "); @btime vnorm1_simd(       $x)
+        if use_turbo || use_avx
+            print("  vnorm1_turbo(     x) "); @btime vnorm1_turbo(      $x)
+        end
+        print(    "  vnorm1(InBounds,  x) "); @btime vnorm1($InBounds,  $x)
+        print(    "  vnorm1(Vectorize, x) "); @btime vnorm1($Vectorize, $x)
+        if use_turbo || use_avx
+            print("  vnorm1(Turbo,     x) "); @btime vnorm1($Turbo,     $x)
+        end
     end
     if :all ∈ ops || :norm ∈ ops || :norm2 ∈ ops
         println()
-        println("Euclidean norm")
-        print("  NumOptBase.norm2( x) "); @btime NumOptBase.norm2(  $x)
-        print("  vnorm2_debug(     x) "); @btime vnorm2_debug(      $x)
-        print("  vnorm2_inbounds(  x) "); @btime vnorm2_inbounds(   $x)
-        print("  vnorm2_simd(      x) "); @btime vnorm2_simd(       $x)
-        print("  vnorm2_turbo(     x) "); @btime vnorm2_turbo(      $x)
-        print("  vnorm2(InBounds,  x) "); @btime vnorm2($InBounds,  $x)
-        print("  vnorm2(Vectorize, x) "); @btime vnorm2($Vectorize, $x)
-        print("  vnorm2(Turbo,     x) "); @btime vnorm2($Turbo,     $x)
+        println("Euclidean norm (≈ $(2n) ops)")
+        print(    "  NumOptBase.norm2( x) "); @btime NumOptBase.norm2(  $x)
+        print(    "  vnorm2_debug(     x) "); @btime vnorm2_debug(      $x)
+        print(    "  vnorm2_inbounds(  x) "); @btime vnorm2_inbounds(   $x)
+        print(    "  vnorm2_simd(      x) "); @btime vnorm2_simd(       $x)
+        if use_turbo || use_avx
+            print("  vnorm2_turbo(     x) "); @btime vnorm2_turbo(      $x)
+        end
+        print(    "  vnorm2(InBounds,  x) "); @btime vnorm2($InBounds,  $x)
+        print(    "  vnorm2(Vectorize, x) "); @btime vnorm2($Vectorize, $x)
+        if use_turbo || use_avx
+            print("  vnorm2(Turbo,     x) "); @btime vnorm2($Turbo,     $x)
+        end
     end
     if :all ∈ ops || :norm ∈ ops || :norminf ∈ ops
         println()
-        println("Infinite norm")
-        print("  NumOptBase.norminf( x) "); @btime NumOptBase.norminf(  $x)
-        print("  vnorminf_debug(     x) "); @btime vnorminf_debug(      $x)
-        print("  vnorminf_inbounds(  x) "); @btime vnorminf_inbounds(   $x)
-        print("  vnorminf_simd(      x) "); @btime vnorminf_simd(       $x)
-        print("  vnorminf_turbo(     x) "); @btime vnorminf_turbo(      $x)
-        print("  vnorminf(InBounds,  x) "); @btime vnorminf($InBounds,  $x)
-        print("  vnorminf(Vectorize, x) "); @btime vnorminf($Vectorize, $x)
-        print("  vnorminf(Turbo,     x) "); @btime vnorminf($Turbo,     $x)
+        println("Infinite norm (≈ $(2n) ops)")
+        print(    "  NumOptBase.norminf( x) "); @btime NumOptBase.norminf(  $x)
+        print(    "  vnorminf_debug(     x) "); @btime vnorminf_debug(      $x)
+        print(    "  vnorminf_inbounds(  x) "); @btime vnorminf_inbounds(   $x)
+        print(    "  vnorminf_simd(      x) "); @btime vnorminf_simd(       $x)
+        if use_turbo || use_avx
+            print("  vnorminf_turbo(     x) "); @btime vnorminf_turbo(      $x)
+        end
+        print(    "  vnorminf(InBounds,  x) "); @btime vnorminf($InBounds,  $x)
+        print(    "  vnorminf(Vectorize, x) "); @btime vnorminf($Vectorize, $x)
+        if use_turbo || use_avx
+            print("  vnorminf(Turbo,     x) "); @btime vnorminf($Turbo,     $x)
+        end
     end
     if :all ∈ ops || :zerofill ∈ ops
         println()
-        println("Zero-filling")
-        print("  NumOptBase.zerofill!( z) "); @btime NumOptBase.zerofill!($z)
-        print("  zerofill_fill!(       z) "); @btime zerofill_fill!(      $z)
-        print("  zerofill_memset!(     z) "); @btime zerofill_memset!(    $z)
-        print("  zerofill_inbounds!(   z) "); @btime zerofill_inbounds!(  $z)
-        print("  zerofill_simd!(       z) "); @btime zerofill_simd!(      $z)
-        print("  zerofill_turbo!(      z) "); @btime zerofill_turbo!(     $z)
+        println("Zero-filling (≈ $(n) ops)")
+        print(    "  NumOptBase.zerofill!( z) "); @btime NumOptBase.zerofill!($z)
+        print(    "  zerofill_fill!(       z) "); @btime zerofill_fill!(      $z)
+        print(    "  zerofill_memset!(     z) "); @btime zerofill_memset!(    $z)
+        print(    "  zerofill_inbounds!(   z) "); @btime zerofill_inbounds!(  $z)
+        print(    "  zerofill_simd!(       z) "); @btime zerofill_simd!(      $z)
+        if use_turbo || use_avx
+            print("  zerofill_turbo!(      z) "); @btime zerofill_turbo!(     $z)
+        end
     end
     if :all ∈ ops || :copy ∈ ops
         println()
-        println("Copying")
-        print("  NumOptBase.copy!(z, x) "); @btime NumOptBase.copy!($z, $x)
-        print("  copyto!(         z, x) "); @btime copyto!(         $z, $x)
-        print("  copy_memcpy!(    z, x) "); @btime copy_memcpy!(    $z, $x)
-        print("  copy_inbounds!(  z, x) "); @btime copy_inbounds!(  $z, $x)
-        print("  copy_simd!(      z, x) "); @btime copy_simd!(      $z, $x)
-        print("  copy_turbo!(     z, x) "); @btime copy_turbo!(     $z, $x)
+        println("Copying (≈ $(n) ops)")
+        print(    "  NumOptBase.copy!(z, x) "); @btime NumOptBase.copy!($z, $x)
+        print(    "  copyto!(         z, x) "); @btime copyto!(         $z, $x)
+        print(    "  copy_memcpy!(    z, x) "); @btime copy_memcpy!(    $z, $x)
+        print(    "  copy_inbounds!(  z, x) "); @btime copy_inbounds!(  $z, $x)
+        print(    "  copy_simd!(      z, x) "); @btime copy_simd!(      $z, $x)
+        if use_turbo || use_avx
+            print("  copy_turbo!(     z, x) "); @btime copy_turbo!(     $z, $x)
+        end
     end
     if :all ∈ ops || :scale ∈ ops
         println()
-        println("Scaling")
-        print("  NumOptBase.scale!( z, α, x) "); @btime NumOptBase.scale!(  $z, $α, $x)
-        print("  vscale_debug!(     z, α, x) "); @btime vscale_debug!(      $z, $α, $x)
-        print("  vscale_inbounds!(  z, α, x) "); @btime vscale_inbounds!(   $z, $α, $x)
-        print("  vscale_simd!(      z, α, x) "); @btime vscale_simd!(       $z, $α, $x)
-        print("  vscale_turbo!(     z, α, x) "); @btime vscale_turbo!(      $z, $α, $x)
-        print("  vscale!(InBounds,  z, α, x) "); @btime vscale!($InBounds,  $z, $α, $x)
-        print("  vscale!(Vectorize, z, α, x) "); @btime vscale!($Vectorize, $z, $α, $x)
-        print("  vscale!(Turbo,     z, α, x) "); @btime vscale!($Turbo,     $z, $α, $x)
+        println("Scaling (≈ $(n) ops)")
+        print(    "  NumOptBase.scale!( z, α, x) "); @btime NumOptBase.scale!(  $z, $α, $x)
+        print(    "  vscale_debug!(     z, α, x) "); @btime vscale_debug!(      $z, $α, $x)
+        print(    "  vscale_inbounds!(  z, α, x) "); @btime vscale_inbounds!(   $z, $α, $x)
+        print(    "  vscale_simd!(      z, α, x) "); @btime vscale_simd!(       $z, $α, $x)
+        if use_turbo || use_avx
+            print("  vscale_turbo!(     z, α, x) "); @btime vscale_turbo!(      $z, $α, $x)
+        end
+        print(    "  vscale!(InBounds,  z, α, x) "); @btime vscale!($InBounds,  $z, $α, $x)
+        print(    "  vscale!(Vectorize, z, α, x) "); @btime vscale!($Vectorize, $z, $α, $x)
+        if use_turbo || use_avx
+            print("  vscale!(Turbo,     z, α, x) "); @btime vscale!($Turbo,     $z, $α, $x)
+        elseif use_avx
+        end
     end
     if :all ∈ ops || :update ∈ ops
         println()
-        println("Updating")
-        print("  NumOptBase.update!( z, α, x) "); @btime NumOptBase.update!(  $z, $α, $x)
-        print("  vupdate_debug!(     z, α, x) "); @btime vupdate_debug!(      $z, $α, $x)
-        print("  vupdate_inbounds!(  z, α, x) "); @btime vupdate_inbounds!(   $z, $α, $x)
-        print("  vupdate_simd!(      z, α, x) "); @btime vupdate_simd!(       $z, $α, $x)
-        print("  vupdate_turbo!(     z, α, x) "); @btime vupdate_turbo!(      $z, $α, $x)
-        print("  vupdate!(InBounds,  z, α, x) "); @btime vupdate!($InBounds,  $z, $α, $x)
-        print("  vupdate!(Vectorize, z, α, x) "); @btime vupdate!($Vectorize, $z, $α, $x)
-        print("  vupdate!(Turbo,     z, α, x) "); @btime vupdate!($Turbo,     $z, $α, $x)
+        println("Updating (≈ $(2n) ops)")
+        print(    "  NumOptBase.update!( z, α, x) "); @btime NumOptBase.update!(  $z, $α, $x)
+        print(    "  vupdate_debug!(     z, α, x) "); @btime vupdate_debug!(      $z, $α, $x)
+        print(    "  vupdate_inbounds!(  z, α, x) "); @btime vupdate_inbounds!(   $z, $α, $x)
+        print(    "  vupdate_simd!(      z, α, x) "); @btime vupdate_simd!(       $z, $α, $x)
+        if use_turbo || use_avx
+            print("  vupdate_turbo!(     z, α, x) "); @btime vupdate_turbo!(      $z, $α, $x)
+        end
+        print(    "  vupdate!(InBounds,  z, α, x) "); @btime vupdate!($InBounds,  $z, $α, $x)
+        print(    "  vupdate!(Vectorize, z, α, x) "); @btime vupdate!($Vectorize, $z, $α, $x)
+        if use_turbo || use_avx
+            print("  vupdate!(Turbo,     z, α, x) "); @btime vupdate!($Turbo,     $z, $α, $x)
+        end
     end
     if :all ∈ ops || :multiply ∈ ops
         println()
-        println("Multiplying")
-        print("  NumOptBase.multiply!( z, x, y) "); @btime NumOptBase.multiply!(  $z, $x, $y)
-        print("  vmultiply_debug!(     z, x, y) "); @btime vmultiply_debug!(      $z, $x, $y)
-        print("  vmultiply_inbounds!(  z, x, y) "); @btime vmultiply_inbounds!(   $z, $x, $y)
-        print("  vmultiply_simd!(      z, x, y) "); @btime vmultiply_simd!(       $z, $x, $y)
-        print("  vmultiply_turbo!(     z, x, y) "); @btime vmultiply_turbo!(      $z, $x, $y)
-        print("  vmultiply!(InBounds,  z, x, y) "); @btime vmultiply!($InBounds,  $z, $x, $y)
-        print("  vmultiply!(Vectorize, z, x, y) "); @btime vmultiply!($Vectorize, $z, $x, $y)
-        print("  vmultiply!(Turbo,     z, x, y) "); @btime vmultiply!($Turbo,     $z, $x, $y)
+        println("Multiplying (≈ $(n) ops)")
+        print(    "  NumOptBase.multiply!( z, x, y) "); @btime NumOptBase.multiply!(  $z, $x, $y)
+        print(    "  vmultiply_debug!(     z, x, y) "); @btime vmultiply_debug!(      $z, $x, $y)
+        print(    "  vmultiply_inbounds!(  z, x, y) "); @btime vmultiply_inbounds!(   $z, $x, $y)
+        print(    "  vmultiply_simd!(      z, x, y) "); @btime vmultiply_simd!(       $z, $x, $y)
+        if use_turbo || use_avx
+            print("  vmultiply_turbo!(     z, x, y) "); @btime vmultiply_turbo!(      $z, $x, $y)
+        end
+        print(    "  vmultiply!(InBounds,  z, x, y) "); @btime vmultiply!($InBounds,  $z, $x, $y)
+        print(    "  vmultiply!(Vectorize, z, x, y) "); @btime vmultiply!($Vectorize, $z, $x, $y)
+        if use_turbo || use_avx
+            print("  vmultiply!(Turbo,     z, x, y) "); @btime vmultiply!($Turbo,     $z, $x, $y)
+        end
     end
     if :all ∈ ops || :combine ∈ ops
         println()
-        println("Combining")
-        print("  NumOptBase.combine!( z, α, x, β, y) "); @btime NumOptBase.combine!(  $z, $α, $x, $β, $y)
-        print("  vcombine_debug!(     z, α, x, β, y) "); @btime vcombine_debug!(      $z, $α, $x, $β, $y)
-        print("  vcombine_inbounds!(  z, α, x, β, y) "); @btime vcombine_inbounds!(   $z, $α, $x, $β, $y)
-        print("  vcombine_simd!(      z, α, x, β, y) "); @btime vcombine_simd!(       $z, $α, $x, $β, $y)
-        print("  vcombine_turbo!(     z, α, x, β, y) "); @btime vcombine_turbo!(      $z, $α, $x, $β, $y)
-        print("  vcombine!(InBounds,  z, α, x, β, y) "); @btime vcombine!($InBounds,  $z, $α, $x, $β, $y)
-        print("  vcombine!(Vectorize, z, α, x, β, y) "); @btime vcombine!($Vectorize, $z, $α, $x, $β, $y)
-        print("  vcombine!(Turbo,     z, α, x, β, y) "); @btime vcombine!($Turbo,     $z, $α, $x, $β, $y)
+        println("Combining (≈ $(3n) ops)")
+        print(    "  NumOptBase.combine!( z, α, x, β, y) "); @btime NumOptBase.combine!(  $z, $α, $x, $β, $y)
+        print(    "  vcombine_debug!(     z, α, x, β, y) "); @btime vcombine_debug!(      $z, $α, $x, $β, $y)
+        print(    "  vcombine_inbounds!(  z, α, x, β, y) "); @btime vcombine_inbounds!(   $z, $α, $x, $β, $y)
+        print(    "  vcombine_simd!(      z, α, x, β, y) "); @btime vcombine_simd!(       $z, $α, $x, $β, $y)
+        if use_turbo || use_avx
+            print("  vcombine_turbo!(     z, α, x, β, y) "); @btime vcombine_turbo!(      $z, $α, $x, $β, $y)
+        end
+        print(    "  vcombine!(InBounds,  z, α, x, β, y) "); @btime vcombine!($InBounds,  $z, $α, $x, $β, $y)
+        print(    "  vcombine!(Vectorize, z, α, x, β, y) "); @btime vcombine!($Vectorize, $z, $α, $x, $β, $y)
+        if use_turbo || use_avx
+            print("  vcombine!(Turbo,     z, α, x, β, y) "); @btime vcombine!($Turbo,     $z, $α, $x, $β, $y)
+        end
     end
     nothing
 end
