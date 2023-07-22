@@ -4,17 +4,13 @@ if !isdefined(@__MODULE__, :TestingNumOptBase)
     include("testing.jl")
 end
 
-@testset "NumOptBase package" begin
-    TestingNumOptBase.test_utilities()
-    TestingNumOptBase.test_operations()
-    TestingNumOptBase.test_operators()
+TestingNumOptBase.test_all()
 
-    if !isdefined(Main,:LoopVectorization)
-        using LoopVectorization
-        println()
-        @testset "Using LoopVectorization" begin
-            TestingNumOptBase.test_operations()
-        end
+if !isdefined(Main,:LoopVectorization)
+    using LoopVectorization
+    println()
+    @testset "... with LoopVectorization" begin
+        TestingNumOptBase.test_operations()
     end
 end
 

@@ -1,20 +1,21 @@
 """
-    @vectorize optim for ...
+    NumOptBase.@vectorize optim for ...
 
 compiles the `for ...` loop according to optimization `optim`, one of:
 
-    :none     # no optimization
+    :none     # no optimization, does bound checking
     :inbounds # optimize with @inbounds
     :simd     # optimize with @inbounds @simd
-    :avx      # optimize with @avx
-    :turbo    # optimize with @turbo
+    :avx      # optimize with @avx (requires LoopVectorization)
+    :turbo    # optimize with @turbo (requires LoopVectorization)
 
 """
 macro vectorize(optim::Symbol, loop::Expr)
-    esc(vectorize(optim, loop))
+    loop.head === :for || error("expecting a `for` loop argument to `@vectorize`")
+    esc(_vectorize(optim, loop))
 end
 
-vectorize(optim::Symbol, loop::Expr) =
+_vectorize(optim::Symbol, loop::Expr) =
     optim === :none     ? loop :
     optim === :inbounds ? :(@inbounds $loop) :
     optim === :simd     ? :(@inbounds @simd $loop) :

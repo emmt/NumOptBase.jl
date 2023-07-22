@@ -238,4 +238,13 @@ function test_operators()
     end
 end
 
+# Run all tests with default settings.
+function test_all()
+    @testset "NumOptBase package" begin
+        TestingNumOptBase.test_utilities()
+        TestingNumOptBase.test_operations()
+        TestingNumOptBase.test_operators()
+    end
+end
+
 end # module
