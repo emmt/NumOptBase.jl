@@ -1,5 +1,5 @@
 """
-    NumOptBase.AbstractEngine
+    NumOptBase.Engine
 
 is the abstract type inherited by numerical *engines* used for computations.
 Numerical engines allows different implementations to co-exist in a Julia
@@ -30,8 +30,7 @@ Fall-back:
 * `Engine`
 
 """
-abstract type AbstractEngine end
-struct Engine <: AbstractEngine end
+abstract type Engine end
 
 """
     NumOptBase.LoopEngine <: NumOptBase.Engine
@@ -40,8 +39,7 @@ is the abstract type identifying implementation with simple loops and bound
 checking.
 
 """
-abstract type AbstractLoopEngine <: AbstractEngine end
-struct LoopEngine <: AbstractLoopEngine end
+abstract type LoopEngine <: Engine end
 
 """
     NumOptBase.InBoundsLoopEngine <: NumOptBase.LoopEngine
@@ -50,8 +48,7 @@ is the abstract type identifying implementation with simple in-bounds loops
 (i.e. `@inbounds`).
 
 """
-abstract type AbstractInBoundsLoopEngine <: AbstractLoopEngine end
-struct InBoundsLoopEngine <: AbstractInBoundsLoopEngine end
+abstract type InBoundsLoopEngine <: LoopEngine end
 
 """
     NumOptBase.SimdLoopEngine <: NumOptBase.InBoundsLoopEngine
@@ -59,8 +56,7 @@ struct InBoundsLoopEngine <: AbstractInBoundsLoopEngine end
 is the abstract type identifying implementation with `@simd` loops.
 
 """
-abstract type AbstractSimdLoopEngine <: AbstractInBoundsLoopEngine end
-struct SimdLoopEngine <: AbstractSimdLoopEngine end
+abstract type SimdLoopEngine <: InBoundsLoopEngine end
 
 """
     NumOptBase.SimdLoopEngine <: NumOptBase.InBoundsLoopEngine
@@ -68,8 +64,7 @@ struct SimdLoopEngine <: AbstractSimdLoopEngine end
 is the abstract type identifying implementation with `@avx` or `@turbo` loops.
 
 """
-abstract type AbstractTurboLoopEngine <: AbstractSimdLoopEngine end
-struct TurboLoopEngine <: AbstractTurboLoopEngine end
+abstract type TurboLoopEngine <: SimdLoopEngine end
 
 """
     NumOptBase.CudaEngine <: NumOptBase.Engine
@@ -77,11 +72,9 @@ struct TurboLoopEngine <: AbstractTurboLoopEngine end
 is the abstract type identifying implementation for CUDA arrays.
 
 """
-abstract type AbstractCudaEngine <: AbstractEngine end
-struct CudaEngine <: AbstractCudaEngine end
+abstract type CudaEngine <: Engine end
 
-abstract type AbstractMapEngine <: AbstractEngine end
-struct MapEngine<: AbstractMapEngine end
+abstract type MapEngine <: Engine end
 
 """
     NumOptBase.engine(args...) -> E::Type{<:NumOptBase.Engine}
@@ -90,9 +83,9 @@ yields the type of the implementation of numerical operations for array
 arguments `args...`.
 
 """
-engine() = Engine()
-@inline engine(::StridedArray...) = TurboLoopEngine()
-@inline engine(::AbstractArray...) = Engine()
+engine() = Engine
+@inline engine(::StridedArray...) = TurboLoopEngine
+@inline engine(::AbstractArray...) = Engine
 
 """
     NumOptBase.@vectorize optim for ...
@@ -240,11 +233,11 @@ Argument `E` specifies which *engine* to be use for the computations.
 """ unsafe_map!
 
 # Loop-based implementations.
-for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
-                               (:inbounds,  AbstractArray, AbstractInBoundsLoopEngine),
-                               (:simd,      StridedArray,  AbstractSimdLoopEngine))
+for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
+                               (:inbounds,  AbstractArray, InBoundsLoopEngine),
+                               (:simd,      StridedArray,  SimdLoopEngine))
     @eval begin
-        @inline function unsafe_map!(::$engine,
+        @inline function unsafe_map!(::Type{<:$engine},
                                      f::Function,
                                      dst::$array,
                                      x::$array)
@@ -253,7 +246,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
             end
             nothing
         end
-        @inline function unsafe_map!(::$engine,
+        @inline function unsafe_map!(::Type{<:$engine},
                                      f::Function,
                                      dst::$array,
                                      x::$array,
@@ -267,14 +260,14 @@ for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
 end
 
 # Generic implementations based on `map!`.
-@inline function unsafe_map!(::AbstractEngine,
+@inline function unsafe_map!(::Type{<:Engine},
                              f::Function,
                              dst::AbstractArray,
                              x::AbstractArray)
     map!(f, dst, x)
     nothing
 end
-@inline function unsafe_map!(::AbstractEngine,
+@inline function unsafe_map!(::Type{<:Engine},
                              f::Function,
                              dst::AbstractArray,
                              x::AbstractArray,
@@ -295,11 +288,11 @@ arrays. Argument `E` specifies which *engine* to be use for the computations.
 """ unsafe_inner!
 
 # Loop-based implementations.
-for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
-                               (:inbounds,  AbstractArray, AbstractInBoundsLoopEngine),
-                               (:simd,      StridedArray,  AbstractSimdLoopEngine))
+for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
+                               (:inbounds,  AbstractArray, InBoundsLoopEngine),
+                               (:simd,      StridedArray,  SimdLoopEngine))
     @eval begin
-        @inline function unsafe_inner(::$engine,
+        @inline function unsafe_inner(::Type{<:$engine},
                                       x::$array,
                                       y::$array)
             acc = inner(zero(eltype(x)), zero(eltype(y)))
@@ -308,7 +301,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
             end
             return acc
         end
-        @inline function unsafe_inner(::$engine,
+        @inline function unsafe_inner(::Type{<:$engine},
                                       w::$array,
                                       x::$array,
                                       y::$array)
@@ -322,12 +315,12 @@ for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
 end
 
 # Generic implementations based on `mapreduce`.
-@inline function unsafe_inner(::AbstractEngine,
+@inline function unsafe_inner(::Type{<:Engine},
                               x::AbstractArray,
                               y::AbstractArray)
     return mapreduce(inner, +, x, y)
 end
-@inline function unsafe_inner(::AbstractEngine,
+@inline function unsafe_inner(::Type{<:Engine},
                               w::AbstractArray,
                               x::AbstractArray,
                               y::AbstractArray)

@@ -3,18 +3,18 @@ module NumOptBaseCUDAExt
 if isdefined(Base, :get_extension)
     using CUDA
     import NumOptBase
-    using NumOptBase: AbstractEngine, CudaEngine, RealComplex, inner, convert_multiplier
+    using NumOptBase: CudaEngine, RealComplex, inner, convert_multiplier
     using NumOptBase: αx, αxpy, αxmy, αxpβy
     import NumOptBase: engine, unsafe_copy!, unsafe_map!, unsafe_inner, norm2, norm1, norminf, zerofill!
 else
     using ..CUDA
     import ..NumOptBase
-    using ..NumOptBase: AbstractEngine, CudaEngine, RealComplex, inner, convert_multiplier
+    using ..NumOptBase: CudaEngine, RealComplex, inner, convert_multiplier
     using ..NumOptBase: αx, αxpy, αxmy, αxpβy
     import ..NumOptBase: engine, unsafe_copy!, unsafe_map!, unsafe_inner, norm2, norm1, norminf, zerofill!
 end
 
-engine(args::CuArray...) = CudaEngine()
+engine(args::CuArray...) = CudaEngine
 
 flatten(A::CuArray{<:Real,1}) = A
 @inline function flatten(A::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
@@ -71,7 +71,7 @@ zerofill!(dst::CuArray) = fill!(dst, zero(eltype(dst)))
 # `CuDeviceArray` and return `nothing` while the "host" version takes array
 # arguments of type `CuArray`.
 
-function unsafe_map!(::CudaEngine, f::Function, dst::CuArray, x::CuArray)
+function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, x::CuArray)
     function func!(f, dst, x)
         for i in @gpu_range(dst)
             @inbounds dst[i] = f(x[i])
@@ -84,7 +84,7 @@ function unsafe_map!(::CudaEngine, f::Function, dst::CuArray, x::CuArray)
     return nothing
 end
 
-function unsafe_map!(::CudaEngine, f::αx, dst::CuArray, x::CuArray)
+function unsafe_map!(::Type{<:CudaEngine}, f::αx, dst::CuArray, x::CuArray)
     function func!(dst, α, x)
         for i in @gpu_range(dst)
             @inbounds dst[i] = α*x[i]
@@ -97,7 +97,7 @@ function unsafe_map!(::CudaEngine, f::αx, dst::CuArray, x::CuArray)
     return nothing
 end
 
-function unsafe_map!(::CudaEngine, f::Function, dst::CuArray, x::CuArray, y::CuArray)
+function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, x::CuArray, y::CuArray)
     function func!(f, dst, x, y)
         for i in @gpu_range(dst)
             @inbounds dst[i] = f(x[i], y[i])
@@ -110,7 +110,7 @@ function unsafe_map!(::CudaEngine, f::Function, dst::CuArray, x::CuArray, y::CuA
     return nothing
 end
 
-function unsafe_map!(::CudaEngine, f::αxpy, dst::CuArray, x::CuArray, y::CuArray)
+function unsafe_map!(::Type{<:CudaEngine}, f::αxpy, dst::CuArray, x::CuArray, y::CuArray)
     function func!(dst, α, x, y)
         for i in @gpu_range(y)
             @inbounds dst[i] = α*x[i] + y[i]
@@ -123,7 +123,7 @@ function unsafe_map!(::CudaEngine, f::αxpy, dst::CuArray, x::CuArray, y::CuArra
     return nothing
 end
 
-function unsafe_map!(::CudaEngine, f::αxmy, dst::CuArray, x::CuArray, y::CuArray)
+function unsafe_map!(::Type{<:CudaEngine}, f::αxmy, dst::CuArray, x::CuArray, y::CuArray)
     function func!(dst, α, x, y)
         for i in @gpu_range(y)
             @inbounds dst[i] = α*x[i] - y[i]
@@ -136,7 +136,7 @@ function unsafe_map!(::CudaEngine, f::αxmy, dst::CuArray, x::CuArray, y::CuArra
     return nothing
 end
 
-function unsafe_map!(::CudaEngine, f::αxpβy, dst::CuArray, x::CuArray, y::CuArray)
+function unsafe_map!(::Type{<:CudaEngine}, f::αxpβy, dst::CuArray, x::CuArray, y::CuArray)
     function func!(dst, α, x, β, y)
         for i in @gpu_range(dst)
             @inbounds dst[i] = α*x[i] + β*y[i]
@@ -149,29 +149,29 @@ function unsafe_map!(::CudaEngine, f::αxpβy, dst::CuArray, x::CuArray, y::CuAr
     return nothing
 end
 
-function unsafe_inner(::CudaEngine,
+function unsafe_inner(::Type{<:CudaEngine},
                       x::CuArray{T,N},
                       y::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
     #return mapreduce(inner, +, x, y; init=inner(zero(R),zero(R)))
     return flatten(x)'*flatten(y) # NOTE: this is a faster than mapreduce
 end
 
-function unsafe_inner(::CudaEngine,
+function unsafe_inner(::Type{<:CudaEngine},
                       w::CuArray{R,N},
                       x::CuArray{R,N},
                       y::CuArray{R,N}) where {R<:Real,N}
     return mapreduce(inner, +, w, x, y; init=inner(zero(R),zero(R),zero(R)))
 end
 
-function norm1(::CudaEngine, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
+function norm1(::Type{<:CudaEngine}, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
     return mapreduce(norm1, +, x; init=norm1(zero(R)))
 end
 
-function norm2(::CudaEngine, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
+function norm2(::Type{<:CudaEngine}, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
     return sqrt(mapreduce(abs2, +, x; init=abs2(zero(R))))
 end
 
-function norminf(::CudaEngine, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
+function norminf(::Type{<:CudaEngine}, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
     return mapreduce(norminf, max, x; init=norminf(zero(R)))
 end
 

@@ -144,9 +144,9 @@ function scale!(dst::AbstractArray{T,N},
     return scale!(engine(dst, x), dst, α, x)
 end
 
-function scale!(E::AbstractEngine,
+function scale!(::Type{E},
                 dst::AbstractArray{T,N},
-                α::Real, x::AbstractArray{T,N}) where {T,N}
+                α::Real, x::AbstractArray{T,N}) where {T,N,E<:Engine}
     @assert_same_axes dst x
     if iszero(α)
         zerofill!(dst)
@@ -173,8 +173,8 @@ If unspecified, `E = NumOptBase.engine(x)` is assumed.
 """
 scale!(α::Real, x::AbstractArray) = scale!(x, α)
 scale!(x::AbstractArray, α::Real) = scale!(engine(x), x, α)
-scale!(E::AbstractEngine, α::Real, x::AbstractArray) = scale!(E, x, α)
-function scale!(E::AbstractEngine, x::AbstractArray, α::Real)
+scale!(::Type{E}, α::Real, x::AbstractArray) where {E<:Engine} = scale!(E, x, α)
+function scale!(::Type{E}, x::AbstractArray, α::Real) where {E<:Engine}
     if iszero(α)
         zerofill!(x)
     elseif α == -one(α)
@@ -200,9 +200,9 @@ function update!(dst::AbstractArray{T,N},
     return update!(engine(dst, x), dst, α, x)
 end
 
-function update!(E::AbstractEngine,
+function update!(::Type{E},
                  dst::AbstractArray{T,N},
-                 α::Real, x::AbstractArray{T,N}) where {T,N}
+                 α::Real, x::AbstractArray{T,N}) where {T,N,E<:Engine}
     @assert_same_axes dst x
     if isone(α)
         unsafe_map!(E, +, dst, dst, x)
@@ -230,10 +230,10 @@ function multiply!(dst::AbstractArray{T,N},
     return multiply!(engine(dst, x, y), dst, x, y)
 end
 
-function multiply!(E::AbstractEngine,
+function multiply!(::Type{E},
                    dst::AbstractArray{T,N},
                    x::AbstractArray{T,N},
-                   y::AbstractArray{T,N}) where {T,N}
+                   y::AbstractArray{T,N}) where {T,N,E<:Engine}
     @assert_same_axes dst x y
     unsafe_map!(E, *, dst, x, y)
     return dst
@@ -255,10 +255,10 @@ function combine!(dst::AbstractArray{T,N},
     return combine!(engine(dst, x, y), dst, α, x, β, y)
 end
 
-function combine!(E::AbstractEngine,
+function combine!(::Type{E},
                   dst::AbstractArray{T,N},
                   α::Real, x::AbstractArray{T,N},
-                  β::Real, y::AbstractArray{T,N}) where {T,N}
+                  β::Real, y::AbstractArray{T,N}) where {T,N,E<:Engine}
     @assert_same_axes dst x y
     if iszero(β)
         # NOTE: Like scale!(dst, α, x)
@@ -337,12 +337,12 @@ inner(x::AbstractArray, y::AbstractArray) = inner(engine(x, y), x, y)
 inner(w::AbstractArray, x::AbstractArray, y::AbstractArray) =
     inner(engine(w, x, y), w, x, y)
 
-function inner(E::AbstractEngine, x::AbstractArray, y::AbstractArray)
+function inner(::Type{E}, x::AbstractArray, y::AbstractArray) where {E<:Engine}
     @assert_same_axes x y
     return unsafe_inner(E, x, y)
 end
 
-function inner(E::AbstractEngine, w::AbstractArray, x::AbstractArray, y::AbstractArray)
+function inner(::Type{E}, w::AbstractArray, x::AbstractArray, y::AbstractArray) where {E<:Engine}
     @assert_same_axes w x y
     return unsafe_inner(E, w, x, y)
 end
@@ -368,11 +368,11 @@ norm1(x::Complex{<:Real}) = abs(real(x)) + abs(imag(x))
 norm1(x::AbstractArray) = norm1(engine(x), x)
 
 # Loop-based implementations.
-for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
-                               (:inbounds,  AbstractArray, AbstractInBoundsLoopEngine),
-                               (:simd,      StridedArray,  AbstractSimdLoopEngine))
+for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
+                               (:inbounds,  AbstractArray, InBoundsLoopEngine),
+                               (:simd,      StridedArray,  SimdLoopEngine))
     @eval begin
-        @inline function norm1(::$engine, x::$array)
+        @inline function norm1(::Type{<:$engine}, x::$array)
             acc = norm1(zero(eltype(x)))
             @vectorize $optim for i in eachindex(x)
                 acc += norm1(x[i])
@@ -383,7 +383,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
 end
 
 # Generic implementation based on `mapreduce`.
-norm1(::AbstractEngine, x::AbstractArray) = mapreduce(norm1, +, x)
+norm1(::Type{<:Engine}, x::AbstractArray) = mapreduce(norm1, +, x)
 
 """
     NumOptBase.norm2(x)
@@ -400,11 +400,11 @@ norm2(x::Complex{<:Real}) = sqrt(abs2(x))
 norm2(x::AbstractArray) = norm2(engine(x), x)
 
 # Loop-based implementations.
-for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
-                               (:inbounds,  AbstractArray, AbstractInBoundsLoopEngine),
-                               (:simd,      StridedArray,  AbstractSimdLoopEngine))
+for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
+                               (:inbounds,  AbstractArray, InBoundsLoopEngine),
+                               (:simd,      StridedArray,  SimdLoopEngine))
     @eval begin
-        @inline function norm2(::$engine, x::$array)
+        @inline function norm2(::Type{<:$engine}, x::$array)
             acc = abs2(zero(eltype(x)))
             @vectorize $optim for i in eachindex(x)
                 acc += abs2(x[i])
@@ -419,7 +419,7 @@ end
 # NOTE: Base.abs2 does this:
 #     abs2(x::Real) = x*x
 #     abs2(x::Complex) = abs2(real(x)) + abs2(imag(x))
-norm2(::AbstractEngine, x::AbstractArray) = sqrt(mapreduce(abs2, +, x))
+norm2(::Type{<:Engine}, x::AbstractArray) = sqrt(mapreduce(abs2, +, x))
 
 """
     NumOptBase.norminf(x)
@@ -436,7 +436,7 @@ norminf(x::Complex{<:Real}) = max(abs(real(x)), abs(imag(x)))
 norminf(x::AbstractArray) = norminf(engine(x), x)
 
 # Generic implementation based on `mapreduce`.
-norminf(::AbstractEngine, x::AbstractArray) = mapreduce(norminf, max, x)
+norminf(::Type{<:Engine}, x::AbstractArray) = mapreduce(norminf, max, x)
 
 flatten(x::AbstractVector) = x
 flatten(x::AbstractArray) = reshape(x, length(x))

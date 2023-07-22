@@ -1,5 +1,10 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.13
+
+- Simplify concept of *engines* by only using abstract typed (this is all what
+  is needed to convey a hierarchy).
+
 # Version 0.1.12
 
 - New concept of *engines* having different implementations of the method
