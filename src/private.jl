@@ -1,6 +1,4 @@
 """
-    @vectorize optim for ...
-"""
     NumOptBase.@vectorize optim for ...
 
 compiles the `for ...` loop according to optimization `optim`, one of:

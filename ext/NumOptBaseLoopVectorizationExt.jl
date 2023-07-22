@@ -30,6 +30,10 @@ end
 
     using Base: HWReal
 
+    const can_avx = isdefined(LoopVectorization, :ArrayInterface) &&
+        isdefined(LoopVectorization.ArrayInterface, :can_avx) ?
+        LoopVectorization.ArrayInterface.can_avx : f -> false
+
     function NumOptBase.unsafe_inner(x::StridedArray{T,N},
                                      y::StridedArray{T,N}) where {T<:HWReal,N}
         acc = inner(zero(eltype(x)), zero(eltype(y)))
