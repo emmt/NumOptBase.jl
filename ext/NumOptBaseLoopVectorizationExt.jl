@@ -3,11 +3,13 @@ module NumOptBaseLoopVectorizationExt
 if isdefined(Base, :get_extension)
     using LoopVectorization
     import NumOptBase
-    using NumOptBase: inner, norm1, norminf
+    using NumOptBase: SimdLoopEngine, AbstractTurboLoopEngine
+    import NumOptBase: inner, norm1, norminf, unsafe_map!, unsafe_inner
 else
     using ..LoopVectorization
     import ..NumOptBase
-    using ..NumOptBase: inner, norm1, norminf
+    using ..NumOptBase: SimdLoopEngine, AbstractTurboLoopEngine
+    import ..NumOptBase: inner, norm1, norminf, unsafe_map!, unsafe_inner
 end
 
 # The @turbo macro was introduced in LoopVectorization 0.12.22 to replace @avx.
@@ -34,8 +36,9 @@ end
         isdefined(LoopVectorization.ArrayInterface, :can_avx) ?
         LoopVectorization.ArrayInterface.can_avx : f -> false
 
-    function NumOptBase.unsafe_inner(x::StridedArray{T,N},
-                                     y::StridedArray{T,N}) where {T<:HWReal,N}
+    @inline function unsafe_inner(::AbstractTurboLoopEngine,
+                                  x::StridedArray{T,N},
+                                  y::StridedArray{T,N}) where {T<:HWReal,N}
         acc = inner(zero(eltype(x)), zero(eltype(y)))
         @turbo for i in eachindex(x, y)
             acc += inner(x[i], y[i])
@@ -43,9 +46,10 @@ end
         return acc
     end
 
-    function NumOptBase.unsafe_inner(w::StridedArray{T,N},
-                                     x::StridedArray{T,N},
-                                     y::StridedArray{T,N}) where {T<:HWReal,N}
+    @inline function unsafe_inner(::AbstractTurboLoopEngine,
+                                  w::StridedArray{T,N},
+                                  x::StridedArray{T,N},
+                                  y::StridedArray{T,N}) where {T<:HWReal,N}
         acc = inner(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))
         @turbo for i in eachindex(w, x, y)
             acc += inner(w[i], x[i], y[i])
@@ -53,7 +57,8 @@ end
         return acc
     end
 
-    function NumOptBase.norm1(x::StridedArray{T,N}) where {T<:HWReal,N}
+    @inline function norm1(::AbstractTurboLoopEngine,
+                           x::StridedArray{T,N}) where {T<:HWReal,N}
         acc = zero(eltype(x))
         @turbo for i in eachindex(x)
             acc += abs(x[i])
@@ -61,7 +66,8 @@ end
         return acc
     end
 
-    function NumOptBase.norm2(x::StridedArray{T,N}) where {T<:HWReal,N}
+    @inline function norm2(::AbstractTurboLoopEngine,
+                           x::StridedArray{T,N}) where {T<:HWReal,N}
         acc = zero(eltype(x))
         @turbo for i in eachindex(x)
             acc += abs2(x[i])
@@ -69,7 +75,8 @@ end
         return sqrt(acc)
     end
 
-    function NumOptBase.norminf(x::StridedArray{T,N}) where {T<:HWReal,N}
+    @inline function norminf(::AbstractTurboLoopEngine,
+                             x::StridedArray{T,N}) where {T<:HWReal,N}
         r = zero(eltype(x))
         @turbo for i in eachindex(x)
             a = abs(x[i])
@@ -78,33 +85,33 @@ end
         return r
     end
 
-    @inline function NumOptBase.unsafe_map!(f::Function,
-                                            dst::StridedArray{T,N},
-                                            x::StridedArray{T,N}) where {T<:HWReal,N}
+    @inline function unsafe_map!(::AbstractTurboLoopEngine,
+                                 f::Function,
+                                 dst::StridedArray{T,N},
+                                 x::StridedArray{T,N}) where {T<:HWReal,N}
         if can_avx(f)
             @turbo for i in eachindex(dst, x)
                 dst[i] = f(x[i])
             end
         else
-            @inbounds @simd for i in eachindex(dst, x)
-                dst[i] = f(x[i])
-            end
+            # Fallback to SIMD loop vectorization.
+            unsafe_map!(SimdLoopEngine(), f, dst, x)
         end
         nothing
     end
 
-    @inline function NumOptBase.unsafe_map!(f::Function,
-                                            dst::StridedArray{T,N},
-                                            x::StridedArray{T,N},
-                                            y::StridedArray{T,N}) where {T<:HWReal,N}
+    @inline function unsafe_map!(::AbstractTurboLoopEngine,
+                                 f::Function,
+                                 dst::StridedArray{T,N},
+                                 x::StridedArray{T,N},
+                                 y::StridedArray{T,N}) where {T<:HWReal,N}
         if can_avx(f)
             @turbo for i in eachindex(dst, x, y)
                 dst[i] = f(x[i], y[i])
             end
         else
-            @inbounds @simd for i in eachindex(dst, x, y)
-                dst[i] = f(x[i], y[i])
-            end
+            # Fallback to SIMD loop vectorization.
+            unsafe_map!(SimdLoopEngine(), f, dst, x, y)
         end
         nothing
     end

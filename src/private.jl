@@ -1,4 +1,100 @@
 """
+    NumOptBase.AbstractEngine
+
+is the abstract type inherited by numerical *engines* used for computations.
+Numerical engines allows different implementations to co-exist in a Julia
+session. The caller of a `NumOptBase` methods may choose a specific engine,
+otherwise, a suitable engine is chosen based on the type of the arguments.
+
+Implementation must be passed by type because they are all abstract types to
+allow for hierarchy.
+
+Explicit loops:
+
+* `LoopEngine` - simple Julia loop with bound checking
+
+* `InBoundsLoopEngine` - Julia loop without bound checking (`@inbounds`)
+
+* `SimdLoopEngine` - Julia loop without bound checking and with SIMD
+  vectorization (`@inbounds @simd`)
+
+* `TurboLoopEngine` - Julia loop without bound checking and with AVX
+  vectorization (`@avx` or `@turbo`)
+
+GPU arrays:
+
+* `CudaEngine`
+
+Fall-back:
+
+* `Engine`
+
+"""
+abstract type AbstractEngine end
+struct Engine <: AbstractEngine end
+
+"""
+    NumOptBase.LoopEngine <: NumOptBase.Engine
+
+is the abstract type identifying implementation with simple loops and bound
+checking.
+
+"""
+abstract type AbstractLoopEngine <: AbstractEngine end
+struct LoopEngine <: AbstractLoopEngine end
+
+"""
+    NumOptBase.InBoundsLoopEngine <: NumOptBase.LoopEngine
+
+is the abstract type identifying implementation with simple in-bounds loops
+(i.e. `@inbounds`).
+
+"""
+abstract type AbstractInBoundsLoopEngine <: AbstractLoopEngine end
+struct InBoundsLoopEngine <: AbstractInBoundsLoopEngine end
+
+"""
+    NumOptBase.SimdLoopEngine <: NumOptBase.InBoundsLoopEngine
+
+is the abstract type identifying implementation with `@simd` loops.
+
+"""
+abstract type AbstractSimdLoopEngine <: AbstractInBoundsLoopEngine end
+struct SimdLoopEngine <: AbstractSimdLoopEngine end
+
+"""
+    NumOptBase.SimdLoopEngine <: NumOptBase.InBoundsLoopEngine
+
+is the abstract type identifying implementation with `@avx` or `@turbo` loops.
+
+"""
+abstract type AbstractTurboLoopEngine <: AbstractSimdLoopEngine end
+struct TurboLoopEngine <: AbstractTurboLoopEngine end
+
+"""
+    NumOptBase.CudaEngine <: NumOptBase.Engine
+
+is the abstract type identifying implementation for CUDA arrays.
+
+"""
+abstract type AbstractCudaEngine <: AbstractEngine end
+struct CudaEngine <: AbstractCudaEngine end
+
+abstract type AbstractMapEngine <: AbstractEngine end
+struct MapEngine<: AbstractMapEngine end
+
+"""
+    NumOptBase.engine(args...) -> E::Type{<:NumOptBase.Engine}
+
+yields the type of the implementation of numerical operations for array
+arguments `args...`.
+
+"""
+engine() = Engine()
+@inline engine(::StridedArray...) = TurboLoopEngine()
+@inline engine(::AbstractArray...) = Engine()
+
+"""
     NumOptBase.@vectorize optim for ...
 
 compiles the `for ...` loop according to optimization `optim`, one of:
@@ -129,7 +225,7 @@ end
     αxpβy(convert_multiplier(α, x), convert_multiplier(β, y))
 
 """
-    NumOptBase.unsafe_map!(f, dst, args...)
+    NumOptBase.unsafe_map!(E, f, dst, args...)
 
 overwrites `dst` with the result of applying `f` element-wise to `args...`.
 
@@ -139,67 +235,101 @@ vectorization for strided arrays and calls `map!` for other arrays.
 This method is *unsafe* because it assumes without checking that `dst` and all
 `args...` have the same axes.
 
-"""
-@inline function unsafe_map!(f::Function,
-                             dst::AbstractArray,
-                             x::AbstractArray)
-    if dst isa StridedArray && x isa StridedArray
-        @inbounds @simd for i in eachindex(dst, x)
-            dst[i] = f(x[i])
+Argument `E` specifies which *engine* to be use for the computations.
+
+""" unsafe_map!
+
+# Loop-based implementations.
+for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
+                               (:inbounds,  AbstractArray, AbstractInBoundsLoopEngine),
+                               (:simd,      StridedArray,  AbstractSimdLoopEngine))
+    @eval begin
+        @inline function unsafe_map!(::$engine,
+                                     f::Function,
+                                     dst::$array,
+                                     x::$array)
+            @vectorize $optim for i in eachindex(dst, x)
+                dst[i] = f(x[i])
+            end
+            nothing
         end
-    else
-        map!(f, dst, x)
+        @inline function unsafe_map!(::$engine,
+                                     f::Function,
+                                     dst::$array,
+                                     x::$array,
+                                     y::$array)
+            @vectorize $optim for i in eachindex(dst, x, y)
+                dst[i] = f(x[i], y[i])
+            end
+            nothing
+        end
     end
-    nothing
 end
 
-@inline function unsafe_map!(f::Function,
+# Generic implementations based on `map!`.
+@inline function unsafe_map!(::AbstractEngine,
+                             f::Function,
+                             dst::AbstractArray,
+                             x::AbstractArray)
+    map!(f, dst, x)
+    nothing
+end
+@inline function unsafe_map!(::AbstractEngine,
+                             f::Function,
                              dst::AbstractArray,
                              x::AbstractArray,
                              y::AbstractArray)
-    if dst isa StridedArray && x isa StridedArray && y isa StridedArray
-        @inbounds @simd for i in eachindex(dst, x, y)
-            dst[i] = f(x[i], y[i])
-        end
-    else
-        map!(f, dst, x, y)
-    end
+    map!(f, dst, x, y)
     nothing
 end
 
 """
-    NumOptBase.unsafe_inner!([w,] x, y)
+    NumOptBase.unsafe_inner!(E, [w,] x, y)
 
 executes the task of [`NumOptBase.inner!`](@ref) assuming without checking that
 array arguments have the same axes. This method is thus *unsafe* and shall not
 be directly called but it may be extended for specific array types. By default,
 it uses SIMD vectorization for strided arrays and calls `mapreduce` for other
-arrays.
+arrays. Argument `E` specifies which *engine* to be use for the computations.
 
-"""
-function unsafe_inner(x::AbstractArray,
-                      y::AbstractArray)
-    if x isa StridedArray && y isa StridedArray
-        acc = inner(zero(eltype(x)), zero(eltype(y)))
-        @inbounds @simd for i in eachindex(x, y)
-            acc += inner(x[i], y[i])
+""" unsafe_inner!
+
+# Loop-based implementations.
+for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
+                               (:inbounds,  AbstractArray, AbstractInBoundsLoopEngine),
+                               (:simd,      StridedArray,  AbstractSimdLoopEngine))
+    @eval begin
+        @inline function unsafe_inner(::$engine,
+                                      x::$array,
+                                      y::$array)
+            acc = inner(zero(eltype(x)), zero(eltype(y)))
+            @vectorize $optim for i in eachindex(x, y)
+                acc += inner(x[i], y[i])
+            end
+            return acc
         end
-        return acc
-    else
-        return mapreduce(inner, +, x, y)
+        @inline function unsafe_inner(::$engine,
+                                      w::$array,
+                                      x::$array,
+                                      y::$array)
+            acc = inner(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))
+            @vectorize $optim for i in eachindex(w, x, y)
+                acc += inner(w[i], x[i], y[i])
+            end
+            return acc
+        end
     end
 end
 
-function unsafe_inner(w::AbstractArray,
-                      x::AbstractArray,
-                      y::AbstractArray)
-     if w isa StridedArray && x isa StridedArray && y isa StridedArray
-         acc = inner(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))
-         @inbounds @simd for i in eachindex(w, x, y)
-             acc += inner(w[i], x[i], y[i])
-         end
-         return acc
-     else
-         return mapreduce(inner, +, w, x, y)
-     end
+# Generic implementations based on `mapreduce`.
+@inline function unsafe_inner(::AbstractEngine,
+                              x::AbstractArray,
+                              y::AbstractArray)
+    return mapreduce(inner, +, x, y)
+end
+@inline function unsafe_inner(::AbstractEngine,
+                              w::AbstractArray,
+                              x::AbstractArray,
+                              y::AbstractArray)
+    return mapreduce(inner, +, w, x, y)
 end

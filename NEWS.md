@@ -1,5 +1,11 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.12
+
+- New concept of *engines* having different implementations of the method
+  co-exist in the same Julia session and be either automatically selected or
+  chosen by the user.
+
 # Version 0.1.11
 
 - New macro `NumOptBase.@vectorize` to compile loops with various

@@ -130,13 +130,22 @@ function zerofill!(dst::DenseArray{T}) where {T}
 end
 
 """
-    NumOptBase.scale!(dst, α, x) -> dst
+    NumOptBase.scale!([E,] dst, α, x) -> dst
 
 overwrites destination `dst` with `α⋅x` and returns `dst`. If `iszero(α)`
 holds, zero-fill `dst` whatever the values in `x`.
 
+Optional argument `E` specifies which *engine* to be use for the computations.
+If unspecified, `E = NumOptBase.engine(dst, x)` is assumed.
+
 """
 function scale!(dst::AbstractArray{T,N},
+                α::Real, x::AbstractArray{T,N}) where {T,N}
+    return scale!(engine(dst, x), dst, α, x)
+end
+
+function scale!(E::AbstractEngine,
+                dst::AbstractArray{T,N},
                 α::Real, x::AbstractArray{T,N}) where {T,N}
     @assert_same_axes dst x
     if iszero(α)
@@ -144,77 +153,110 @@ function scale!(dst::AbstractArray{T,N},
     elseif isone(α)
         dst !== x && unsafe_copy!(dst, x)
     elseif α == -one(α)
-        unsafe_map!(-, dst, x)
+        unsafe_map!(E, -, dst, x)
     else
-        unsafe_map!(αx(α, x), dst, x)
+        unsafe_map!(E, αx(α, x), dst, x)
     end
     return dst
 end
 
 """
-    NumOptBase.scale!(α, x) -> x
-    NumOptBase.scale!(x, α) -> x
+    NumOptBase.scale!([E,] α, x) -> x
+    NumOptBase.scale!([E,] x, α) -> x
 
 overwrites `x` with `α⋅x` and returns `x`. If `iszero(α)` holds, zero-fill `x`
 whatever its contents.
 
+Optional argument `E` specifies which *engine* to be use for the computations.
+If unspecified, `E = NumOptBase.engine(x)` is assumed.
+
 """
 scale!(α::Real, x::AbstractArray) = scale!(x, α)
-function scale!(x::AbstractArray, α::Real)
+scale!(x::AbstractArray, α::Real) = scale!(engine(x), x, α)
+scale!(E::AbstractEngine, α::Real, x::AbstractArray) = scale!(E, x, α)
+function scale!(E::AbstractEngine, x::AbstractArray, α::Real)
     if iszero(α)
         zerofill!(x)
     elseif α == -one(α)
-        unsafe_map!(-, x, x)
+        unsafe_map!(E, -, x, x)
     elseif !isone(α)
-        unsafe_map!(αx(α, x), x, x)
+        unsafe_map!(E, αx(α, x), x, x)
     end
     return x
 end
 
 """
-    NumOptBase.update!(dst, α, x) -> dst
+    NumOptBase.update!([E,] dst, α, x) -> dst
 
-overwrites destination `dst` with `dst + α⋅x` and returns `dst`. This is a shortcut
-for `NumOptBase.combine!(dst,1,dst,α,x)`.
+overwrites destination `dst` with `dst + α⋅x` and returns `dst`. This is an
+optimized version of `NumOptBase.combine!(dst,1,dst,α,x)`.
+
+Optional argument `E` specifies which *engine* to be use for the computations.
+If unspecified, `E = NumOptBase.engine(dst, x)` is assumed.
 
 """
 function update!(dst::AbstractArray{T,N},
                  α::Real, x::AbstractArray{T,N}) where {T,N}
+    return update!(engine(dst, x), dst, α, x)
+end
+
+function update!(E::AbstractEngine,
+                 dst::AbstractArray{T,N},
+                 α::Real, x::AbstractArray{T,N}) where {T,N}
     @assert_same_axes dst x
     if isone(α)
-        unsafe_map!(+, dst, dst, x)
+        unsafe_map!(E, +, dst, dst, x)
     elseif α == -one(α)
-        unsafe_map!(-, dst, dst, x)
+        unsafe_map!(E, -, dst, dst, x)
     elseif !iszero(α)
-        unsafe_map!(αxpy(α, x), dst, x, dst)
-        #unsafe_map!((dstᵢ, xᵢ) -> dstᵢ + α*xᵢ, dst, dst, x)
+        unsafe_map!(E, αxpy(α, x), dst, x, dst)
     end
     return dst
 end
 
 """
-    NumOptBase.multiply!(dst, x, y) -> dst
+    NumOptBase.multiply!([E,] dst, x, y) -> dst
 
 overwrites destination `dst` with the element-wise multiplication (Hadamard
 product) of `x` by `y` and returns `dst`.
+
+Optional argument `E` specifies which *engine* to be use for the computations.
+If unspecified, `E = NumOptBase.engine(dst, x, y)` is assumed.
 
 """
 function multiply!(dst::AbstractArray{T,N},
                    x::AbstractArray{T,N},
                    y::AbstractArray{T,N}) where {T,N}
+    return multiply!(engine(dst, x, y), dst, x, y)
+end
+
+function multiply!(E::AbstractEngine,
+                   dst::AbstractArray{T,N},
+                   x::AbstractArray{T,N},
+                   y::AbstractArray{T,N}) where {T,N}
     @assert_same_axes dst x y
-    unsafe_map!(*, dst, x, y)
+    unsafe_map!(E, *, dst, x, y)
     return dst
 end
 
 """
-    NumOptBase.combine!(dst, α, x, β, y) -> dst
+    NumOptBase.combine!([E,] dst, α, x, β, y) -> dst
 
 overwrites destination `dst` with the linear combination `α⋅x + β⋅y` and
 returns `dst`.
 
+Optional argument `E` specifies which *engine* to be use for the computations.
+If unspecified, `E = NumOptBase.engine(dst, x, y)` is assumed.
+
 """
 function combine!(dst::AbstractArray{T,N},
+                  α::Real, x::AbstractArray{T,N},
+                  β::Real, y::AbstractArray{T,N}) where {T,N}
+    return combine!(engine(dst, x, y), dst, α, x, β, y)
+end
+
+function combine!(E::AbstractEngine,
+                  dst::AbstractArray{T,N},
                   α::Real, x::AbstractArray{T,N},
                   β::Real, y::AbstractArray{T,N}) where {T,N}
     @assert_same_axes dst x y
@@ -225,33 +267,33 @@ function combine!(dst::AbstractArray{T,N},
         elseif isone(α)
             dst !== x && unsafe_copy!(dst, x)
         elseif α == -one(α)
-            unsafe_map!(-, dst, x)
+            unsafe_map!(E, -, dst, x)
         else
-            unsafe_map!(αx(α, x), dst, x)
+            unsafe_map!(E, αx(α, x), dst, x)
         end
     elseif iszero(α)
         # NOTE: Like scale!(dst, β, y) except β is not zero
         if isone(β)
             dst !== y && unsafe_copy!(dst, y)
         elseif β == -one(β)
-            unsafe_map!(-, dst, y)
+            unsafe_map!(E, -, dst, y)
         else
-            unsafe_map!(αx(β, y), dst, y)
+            unsafe_map!(E, αx(β, y), dst, y)
         end
     elseif isone(α)
         if isone(β)
             # dst .= x .+ y
-            unsafe_map!(+, dst, x, y)
+            unsafe_map!(E, +, dst, x, y)
         elseif β == -one(β)
             # dst .= x .- y
-            unsafe_map!(-, dst, x, y)
+            unsafe_map!(E, -, dst, x, y)
         else
             # dst .= x .+ β.*y
-            unsafe_map!(αxpy(β, y), dst, y, x)
+            unsafe_map!(E, αxpy(β, y), dst, y, x)
         end
     else
         # dst .= α.*x .+ β.*y
-        unsafe_map!(αxpβy(α, x, β, y), dst, x, y)
+        unsafe_map!(E, αxpβy(α, x, β, y), dst, x, y)
     end
     return dst
 end
@@ -281,23 +323,28 @@ floating_point_type(::Type{T}) where {R<:Real,T<:RealComplex{R}} = float(R)
     throw(ArgumentError("cannot determine floating-point type of `$T`"))
 
 """
-    NumOptBase.inner([w,] x, y)
+    NumOptBase.inner([E,] [w,] x, y)
 
 yields the inner product of `x` and `y` computed as expected by numerical
-optimization methods.
+optimization methods. If optional argument `w` is specified, `Σᵢ wᵢ⋅xᵢ⋅yᵢ` is
+returned.
+
+Optional argument `E` specifies which *engine* to be use for the computations.
+If unspecified, `E = NumOptBase.engine([w,] x, y)` is assumed.
 
 """
-function inner(x::AbstractArray{<:Number,N},
-               y::AbstractArray{<:Number,N}) where {N}
+inner(x::AbstractArray, y::AbstractArray) = inner(engine(x, y), x, y)
+inner(w::AbstractArray, x::AbstractArray, y::AbstractArray) =
+    inner(engine(w, x, y), w, x, y)
+
+function inner(E::AbstractEngine, x::AbstractArray, y::AbstractArray)
     @assert_same_axes x y
-    return unsafe_inner(x, y)
+    return unsafe_inner(E, x, y)
 end
 
-function inner(w::AbstractArray{<:Real,N},
-               x::AbstractArray{<:Real,N},
-               y::AbstractArray{<:Number,N}) where {N}
+function inner(E::AbstractEngine, w::AbstractArray, x::AbstractArray, y::AbstractArray)
     @assert_same_axes w x y
-    return unsafe_inner(w, x, y)
+    return unsafe_inner(E, w, x, y)
 end
 
 # Inner product of variables as assumed for numerical optimization, that is
@@ -307,25 +354,36 @@ inner(x::Complex, y::Complex) = real(x)*real(y) + imag(x)*imag(y)
 inner(w::Real, x::Real, y::Real) = w*x*y
 
 """
-    NumOptBase.norm1(x)
+    NumOptBase.norm1([E,] x)
 
 yields the ℓ₁ norm of `x` considered as a real-valued *vector* (i.e, as if `x`
 has been flattened).
 
+Optional argument `E` specifies which *engine* to be use for the computations.
+If unspecified, `E = NumOptBase.engine(x)` is assumed.
+
 """
 norm1(x::Real) = abs(x)
 norm1(x::Complex{<:Real}) = abs(real(x)) + abs(imag(x))
-function norm1(x::AbstractArray)
-    if x isa StridedArray
-        acc = norm1(zero(eltype(x)))
-        @inbounds @simd for i in eachindex(x)
-            acc += norm1(x[i])
+norm1(x::AbstractArray) = norm1(engine(x), x)
+
+# Loop-based implementations.
+for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
+                               (:inbounds,  AbstractArray, AbstractInBoundsLoopEngine),
+                               (:simd,      StridedArray,  AbstractSimdLoopEngine))
+    @eval begin
+        @inline function norm1(::$engine, x::$array)
+            acc = norm1(zero(eltype(x)))
+            @vectorize $optim for i in eachindex(x)
+                acc += norm1(x[i])
+            end
+            return acc
         end
-        return acc
-    else
-        return mapreduce(norm1, +, x)
     end
 end
+
+# Generic implementation based on `mapreduce`.
+norm1(::AbstractEngine, x::AbstractArray) = mapreduce(norm1, +, x)
 
 """
     NumOptBase.norm2(x)
@@ -333,23 +391,35 @@ end
 yields the Euclidean norm of `x` considered as a real-valued *vector* (i.e, as
 if `x` has been flattened).
 
+Optional argument `E` specifies which *engine* to be use for the computations.
+If unspecified, `E = NumOptBase.engine(x)` is assumed.
+
 """
 norm2(x::Real) = abs(x)
 norm2(x::Complex{<:Real}) = sqrt(abs2(x))
-function norm2(x::AbstractArray)
-    if x isa StridedArray
-        acc = abs2(zero(eltype(x)))
-        @inbounds @simd for i in eachindex(x)
-            acc += abs2(x[i])
+norm2(x::AbstractArray) = norm2(engine(x), x)
+
+# Loop-based implementations.
+for (optim, array, engine) in ((:none,      AbstractArray, AbstractLoopEngine),
+                               (:inbounds,  AbstractArray, AbstractInBoundsLoopEngine),
+                               (:simd,      StridedArray,  AbstractSimdLoopEngine))
+    @eval begin
+        @inline function norm2(::$engine, x::$array)
+            acc = abs2(zero(eltype(x)))
+            @vectorize $optim for i in eachindex(x)
+                acc += abs2(x[i])
+            end
+            return sqrt(acc)
         end
-        return sqrt(acc)
-    else
-        return sqrt(mapreduce(abs2, +, x))
     end
 end
+
+# Generic implementation based on `mapreduce`.
+#
 # NOTE: Base.abs2 does this:
 #     abs2(x::Real) = x*x
 #     abs2(x::Complex) = abs2(real(x)) + abs2(imag(x))
+norm2(::AbstractEngine, x::AbstractArray) = sqrt(mapreduce(abs2, +, x))
 
 """
     NumOptBase.norminf(x)
@@ -357,10 +427,16 @@ end
 yields the infinite norm of `x` considered as a real-valued *vector* (i.e, as
 if `x` has been flattened).
 
+Optional argument `E` specifies which *engine* to be use for the computations.
+If unspecified, `E = NumOptBase.engine(x)` is assumed.
+
 """
 norminf(x::Real) = abs(x)
 norminf(x::Complex{<:Real}) = max(abs(real(x)), abs(imag(x)))
-norminf(x::AbstractArray) = mapreduce(norminf, max, x)
+norminf(x::AbstractArray) = norminf(engine(x), x)
+
+# Generic implementation based on `mapreduce`.
+norminf(::AbstractEngine, x::AbstractArray) = mapreduce(norminf, max, x)
 
 flatten(x::AbstractVector) = x
 flatten(x::AbstractArray) = reshape(x, length(x))
