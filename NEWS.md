@@ -1,5 +1,10 @@
 # User visible changes in `NumOptBase`
 
+# Version 0.1.11
+
+- New macro `NumOptBase.@vectorize` to compile loops with various
+  optimizations.
+
 # Version 0.1.10
 
 - `NumOptBase.scale!(α,x)` and `NumOptBase.scale!(x,α)` are shortcuts to

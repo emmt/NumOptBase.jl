@@ -1,3 +1,27 @@
+"""
+    @vectorize optim for ...
+
+compiles the `for ...` loop according to optimization `optim`, one of:
+
+    :none     # no optimization
+    :inbounds # optimize with @inbounds
+    :simd     # optimize with @inbounds @simd
+    :avx      # optimize with @avx
+    :turbo    # optimize with @turbo
+
+"""
+macro vectorize(optim::Symbol, loop::Expr)
+    esc(vectorize(optim, loop))
+end
+
+vectorize(optim::Symbol, loop::Expr) =
+    optim === :none     ? loop :
+    optim === :inbounds ? :(@inbounds $loop) :
+    optim === :simd     ? :(@inbounds @simd $loop) :
+    optim === :avx      ? :(@avx $loop) :
+    optim === :turbo    ? :(@turbo $loop) :
+    error("unknown loop optimizer `$optim`")
+
 # NOTE: dst !== x and axes(dst) == axes(x) must hold
 unsafe_copy!(dst::AbstractArray, x::AbstractArray) = copyto!(dst, x)
 unsafe_copy!(dst::DenseArray{T,N}, x::DenseArray{T,N}) where {T,N} = begin
@@ -17,6 +41,7 @@ end
 # ultimate execution speed with `map!`.
 
 """
+
 For a scalar real `α` and an array `x`:
 
     f = NumOptBase.αx(α, x)
@@ -37,6 +62,7 @@ end
 αx(α::Real, x::AbstractArray) = αx(convert_multiplier(α, x))
 
 """
+
 For a scalar real `α` and an array `x`:
 
     f = NumOptBase.αxpy(α, x)
