@@ -14,9 +14,10 @@ if !isdefined(Main,:LoopVectorization)
     end
 end
 
-# To test with CUDA, do something like:
-# @testset "NumOptBase package with CUDA" begin
-#     TestingNumOptBase.test_operationss(; classes = (CuArray,))
-# end
+if isdefined(Main,:CUDA)
+    @testset "NumOptBase package with CUDA" begin
+        TestingNumOptBase.test_operations(; classes = (CuArray,))
+    end
+end
 
 nothing
