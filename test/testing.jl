@@ -111,7 +111,7 @@ function test_operations(;
         y = wrapper(y_ref)
         z = similar(x)
         @testset "norm1" begin
-            let xᵢ = first(x), res = @inferred NumOptBase.norm1(xᵢ)
+            let xᵢ = first(x_ref), res = @inferred NumOptBase.norm1(xᵢ)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norm1(xᵢ)
             end
@@ -121,7 +121,7 @@ function test_operations(;
             end
         end
         @testset "norm2" begin
-            let xᵢ = first(x), res = @inferred NumOptBase.norm2(xᵢ)
+            let xᵢ = first(x_ref), res = @inferred NumOptBase.norm2(xᵢ)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norm2(xᵢ)
             end
@@ -131,7 +131,7 @@ function test_operations(;
             end
         end
         @testset "norminf" begin
-            let xᵢ = first(x), res = @inferred NumOptBase.norminf(xᵢ)
+            let xᵢ = first(x_ref), res = @inferred NumOptBase.norminf(xᵢ)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norminf(xᵢ)
             end
