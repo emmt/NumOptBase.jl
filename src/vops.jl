@@ -1,54 +1,4 @@
 """
-    NumOptBase.RealComplex{R<:Real}
-
-is the type union of `R` and `Complex{R}`.
-
-"""
-const RealComplex{R<:Real} = Union{R,Complex{R}}
-
-"""
-    NumOptBase.Identity()
-
-yields a singleton object representing the identity mapping for the
-[`NumOptBase.apply!`](@ref) method.
-
-"""
-struct Identity end
-
-"""
-    NumOptBase.Id
-
-is the singleton object representing the identity mapping for the
-[`NumOptBase.apply!`](@ref) method.
-
-"""
-const Id = Identity()
-
-"""
-    NumOptBase.Diag(A)
-
-yields an object behaving as a diagonal linear mapping for the
-[`NumOptBase.apply!`](@ref) method.
-
-"""
-struct Diag{T,N,A<:AbstractArray{T,N}}
-    diag::A
-    Diag{T,N,A}(x::A) where {T,N,A<:AbstractArray{T,N}} = new{T,N,A}(x)
-end
-LinearAlgebra.diag(A::Diag) = A.diag
-
-# Other constructors.
-Diag(x::A) where {T,N,A<:AbstractArray{T,N}} = Diag{T,N,A}(x)
-Diag{T}(x::AbstractArray{T}) where {T} = Diag(x)
-Diag{T}(x::AbstractArray) where {T} = Diag(convert(AbstractArray{T}, x))
-Diag{T,N}(x::AbstractArray{T,N}) where {T,N} = Diag(x)
-Diag{T,N}(x::AbstractArray) where {T,N} = Diag(convert(AbstractArray{T,N}, x))
-Diag{T,N,A}(x::AbstractArray) where {T,N,A<:AbstractArray{T,N}} = Diag(convert(A, x))
-
-Base.convert(::Type{T}, x::T) where {T<:Diag} = x
-Base.convert(::Type{T}, x) where {T<:Diag} = T(diag(x))
-
-"""
     NumOptBase.apply!(dst, f, args...) -> dst
 
 overwrites destination `dst` with the result of applying the mapping `f` to
@@ -108,6 +58,18 @@ function copy!(dst::AbstractArray, x::AbstractArray)
     if dst !== x
         @assert_same_axes dst x
         unsafe_copy!(dst, x)
+    end
+    return dst
+end
+
+# NOTE: dst !== x and axes(dst) == axes(x) must hold
+unsafe_copy!(dst::AbstractArray, x::AbstractArray) = copyto!(dst, x)
+unsafe_copy!(dst::DenseArray{T,N}, x::DenseArray{T,N}) where {T,N} = begin
+    if isbitstype(T)
+        nbytes = sizeof(T)*length(dst)
+        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), dst, x, nbytes)
+    else
+        copyto!(dst, x)
     end
     return dst
 end
@@ -299,30 +261,6 @@ function combine!(::Type{E},
 end
 
 """
-    NumOptBase.convert_multiplier(α, x)
-
-converts scalar real `α` to a floating-point type whose numerical precision is
-the same as that of the elements of `x`.
-
-"""
-convert_multiplier(α::Real, x::AbstractArray) = as(floating_point_type(x), α)
-
-"""
-    NumOptBase.floating_point_type(x)
-
-yields the floating-point type corresponding to the numeric type or value `x`.
-If `x` is a numeric array type or instance, the floating-point type of the
-elements of `x` is returned. If `x` is complex, the floating-point type of the
-real and imaginary parts of `x` is returned.
-
-"""
-floating_point_type(x::Any) = floating_point_type(typeof(x))
-floating_point_type(::Type{T}) where {T<:AbstractArray} = floating_point_type(eltype(T))
-floating_point_type(::Type{T}) where {R<:Real,T<:RealComplex{R}} = float(R)
-@noinline floating_point_type(T::Union{DataType,UnionAll}) =
-    throw(ArgumentError("cannot determine floating-point type of `$T`"))
-
-"""
     NumOptBase.inner([E,] [w,] x, y)
 
 yields the inner product of `x` and `y` computed as expected by numerical
@@ -352,6 +290,57 @@ end
 inner(x::Real, y::Real) = x*y
 inner(x::Complex, y::Complex) = real(x)*real(y) + imag(x)*imag(y)
 inner(w::Real, x::Real, y::Real) = w*x*y
+
+"""
+    NumOptBase.unsafe_inner!(E, [w,] x, y)
+
+executes the task of [`NumOptBase.inner!`](@ref) assuming without checking that
+array arguments have the same axes. This method is thus *unsafe* and shall not
+be directly called but it may be extended for specific array types. By default,
+it uses SIMD vectorization for strided arrays and calls `mapreduce` for other
+arrays. Argument `E` specifies which *engine* to be use for the computations.
+
+""" unsafe_inner!
+
+# Loop-based implementations.
+for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
+                               (:inbounds,  AbstractArray, InBoundsLoopEngine),
+                               (:simd,      StridedArray,  SimdLoopEngine))
+    @eval begin
+        @inline function unsafe_inner(::Type{<:$engine},
+                                      x::$array,
+                                      y::$array)
+            acc = inner(zero(eltype(x)), zero(eltype(y)))
+            @vectorize $optim for i in eachindex(x, y)
+                acc += inner(x[i], y[i])
+            end
+            return acc
+        end
+        @inline function unsafe_inner(::Type{<:$engine},
+                                      w::$array,
+                                      x::$array,
+                                      y::$array)
+            acc = inner(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))
+            @vectorize $optim for i in eachindex(w, x, y)
+                acc += inner(w[i], x[i], y[i])
+            end
+            return acc
+        end
+    end
+end
+
+# Generic implementations based on `mapreduce`.
+@inline function unsafe_inner(::Type{<:Engine},
+                              x::AbstractArray,
+                              y::AbstractArray)
+    return mapreduce(inner, +, x, y)
+end
+@inline function unsafe_inner(::Type{<:Engine},
+                              w::AbstractArray,
+                              x::AbstractArray,
+                              y::AbstractArray)
+    return mapreduce(inner, +, w, x, y)
+end
 
 """
     NumOptBase.norm1([E,] x)
