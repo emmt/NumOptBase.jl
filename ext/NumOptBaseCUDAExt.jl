@@ -118,7 +118,7 @@ function unsafe_map!(::Type{<:CudaEngine}, f::αxpy, dst::CuArray, x::CuArray, y
         return nothing # GPU kernels return nothing
     end
     kernel = @cuda launch=false func!(dst, f.α, x, y)
-    threads, blocks = gpu_config(kernel, y)
+    threads, blocks = gpu_config(kernel, dst)
     kernel(dst, f.α, x, y; threads, blocks)
     return nothing
 end
@@ -131,7 +131,7 @@ function unsafe_map!(::Type{<:CudaEngine}, f::αxmy, dst::CuArray, x::CuArray, y
         return nothing # GPU kernels return nothing
     end
     kernel = @cuda launch=false func!(dst, f.α, x, y)
-    threads, blocks = gpu_config(kernel, y)
+    threads, blocks = gpu_config(kernel, dst)
     kernel(dst, f.α, x, y; threads, blocks)
     return nothing
 end
