@@ -410,7 +410,7 @@ function runtests(w::AbstractArray, x::AbstractArray, y::AbstractArray;
         println()
         println("ℓ₁ norm (≈ $(2n) ops)")
         print(    "  NumOptBase.norm1( x) "); @btime NumOptBase.norm1(  $x)
-        print(    "  vnorm1_none(     x) "); @btime vnorm1_none(      $x)
+        print(    "  vnorm1_none(      x) "); @btime vnorm1_none(      $x)
         print(    "  vnorm1_inbounds(  x) "); @btime vnorm1_inbounds(   $x)
         print(    "  vnorm1_simd(      x) "); @btime vnorm1_simd(       $x)
         if use_turbo || use_avx

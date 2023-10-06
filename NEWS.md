@@ -1,22 +1,27 @@
 # User visible changes in `NumOptBase`
 
-# Version 0.1.13
+## Version 1.14
 
-- Simplify concept of *engines* by only using abstract typed (this is all what
+- Fix tests for non-indexable arrays such as GPU arrays.
+- Extend compatibility to `CUDA` package version 5.
+
+## Version 0.1.13
+
+- Simplify concept of *engines* by only using abstract types (this is all what
   is needed to convey a hierarchy).
 
-# Version 0.1.12
+## Version 0.1.12
 
 - New concept of *engines* having different implementations of the method
   co-exist in the same Julia session and be either automatically selected or
   chosen by the user.
 
-# Version 0.1.11
+## Version 0.1.11
 
 - New macro `NumOptBase.@vectorize` to compile loops with various
   optimizations.
 
-# Version 0.1.10
+## Version 0.1.10
 
 - `NumOptBase.scale!(α,x)` and `NumOptBase.scale!(x,α)` are shortcuts to
   `NumOptBase.scale!(x,α,x)`.
@@ -25,17 +30,17 @@
 
 - Use `TypeUtils` instead of our own `NumOptBase.as` method.
 
-# Version 0.1.9
+## Version 0.1.9
 
 - Use `ccall` instead of `@ccall` for Julia < 1.5.
 
-# Version 0.1.8
+## Version 0.1.8
 
 - Re-write splitting in low/high level methods.
 
 - Accelerate `norm1` and `norminf` with `LoopVectorization`.
 
-# Version 0.1.7
+## Version 0.1.7
 
 - Fix dependencies:
   - Julia ≥ 1.2 is needed for `mapreduce` with multiple arguments.
@@ -43,7 +48,7 @@
 
 - Drop dependency on `Unitless`.
 
-# Version 0.1.6
+## Version 0.1.6
 
 - Implement operations for GPU arrays provided by the
   [`CUDA.jl`](https://github.com/JuliaGPU/CUDA.jl) package.
@@ -51,7 +56,7 @@
 - In `LoopVectorization` extension: fix norms and restrict arguments to real-valued
   arrays.
 
-# Version 0.1.5
+## Version 0.1.5
 
 - Fix norms for complex-valued variables.
 
@@ -59,25 +64,25 @@
 
 - Speed-up infinite norm when `LoopVectorization` is not loaded.
 
-# Version 0.1.4
+## Version 0.1.4
 
 - Fix extend of `LoopVectorization` to more other basic operations.
 
-# Version 0.1.3
+## Version 0.1.3
 
 - Extend  `LoopVectorization` to more other basic operations.
 
 - Avoid using `LoopVectorization` if the `@turbo` macro is not defined (i.e.
   for Julia < 1.5 or `LoopVectorization` < 0.12.22).
 
-# Version 0.1.2
+## Version 0.1.2
 
 - Add `LoopVectorization` to speed up some operations as a package extension
   (for Julia ≥ 1.9) or using
   [`Requires`](https://github.com/JuliaPackaging/Requires.jl) (for Julia <
   1.9).
 
-# Version 0.1.1
+## Version 0.1.1
 
 - Add a few cases that can be handled by `apply!`: the identity
   `NumOptBase.Id`, diagonal linear mappings built by `NumOptBase.Diag`, and

@@ -26,7 +26,7 @@ An optimization problem typically writes:
     minₓ f(x) s.t. x ∈ Ω
 
 where `f: Ω → ℝ` is the objective function, `x` are the variables, and `Ω ⊆ ℝⁿ`
-is the set of acceptable solution with `n` the dimension of the problem.
+is the set of acceptable solutions with `n` the dimension of the problem.
 
 It is assumed by this package that the variables `x` are stored in Julia
 arrays. Depending on the problem, these arrays may be multidimensional but are
@@ -78,7 +78,7 @@ is given by:
 In the above pseudo-codes, index `i` runs over all indices of `x` and `y` which
 may be multi-dimensional arrays but must have the same indices.
 
-`NumOptBase.inner(w, x, y)` yields
+`NumOptBase.inner(w, x, y)` yields:
 
     Σᵢ wᵢ⋅xᵢ⋅yᵢ
 
@@ -89,20 +89,20 @@ must all be real-valued arrays.
 ### Scaling, updating, and combining variables
 
 `NumOptBase.scale!(dst, α, x)` overwrites `dst` with `α⋅x` and returns `dst`.
-`α` is a scalar while `dst` and `x` are variables of the same size. If
-`iszero(α)` holds, `dst` is zero-filled whatever the values in `x`.
+`α` is a scalar while `dst` and `x` are arrays of the same size. If `iszero(α)`
+holds, `dst` is zero-filled whatever the values in `x`.
 
 `NumOptBase.update!(x, β, y)` overwrites `x` with `x + β⋅y` and returns `x`.
-`β` is a scalar while `x` and `y` are variables of the same size. This is a
+`β` is a scalar while `x` and `y` are arrays of the same size. This is a
 shortcut for `NumOptBase.combine!(x,1,x,β,y)`.
 
 `NumOptBase.multiply!(dst, x, y)` overwrites `dst` with the element-wise
 multiplication (also known as *Hadamard product*) of `x` by `y` and returns
-`dst`. `dst`, `x`, and `y` must be variables of the same size.
+`dst`. `dst`, `x`, and `y` must be arrays of the same size.
 
 `NumOptBase.combine!(dst, α, x, β, y)` overwrites `dst` with `α⋅x + β⋅y` and
 returns `dst`. `α` and `β` must be real scalars while `dst`, `x`, and `y` must
-be variables of the same size.
+be arrays of the same size.
 
 
 ### Applying mappings
@@ -113,7 +113,7 @@ The method:
 NumOptBase.apply!(dst, f, args...) -> dst
 ```
 
-overwrites the destination `dst` variables with the result of applying the
+overwrites the destination variables `dst` with the result of applying the
 mapping `f` to arguments `args...`.
 
 As of now, `NumOptBase.apply!` only handles a few types of mappings:
@@ -148,11 +148,11 @@ way for the type of array storing the variables:
 
 To extend the `NumOptBase` to other array types, some understanding of the
 implementation of this package is needed. The **public methods** which can be
-called by the end users are summarized in the following table.
+called by the end-users are summarized in the following table.
 
 | Public method           | Description             | Remarks                        |
 |:------------------------|:------------------------|:-------------------------------|
-| `similar(x)`            | Yield an array like `x` | Same as `similar!` in Julia    |
+| `similar(x)`            | Yield an array like `x` | Same as `similar` in Julia     |
 | `zerofill!(dst)`        | Zero-fill `dst`         |                                |
 | `copy!(dst,x)`          | Copy `x` into `dst`     | Same as `copy!` in Julia ≥ 1.1 |
 | `scale!(dst,α,x)`       | `dst = α*x`             |                                |
@@ -168,10 +168,10 @@ In the above table and hereinafter, `dst`, `w`, `x`, and `y` denote arrays
 (considered as *vectors*), `α` and `β` denote scalar reals, and all operations
 and function calls are assumed to be done element-wise.
 
-These public methods check their arguments (for having the same axes) and call
-one of the specialized methods listed below depending on the operation, on the
-type of the array arguments, and on the specific values of the multipliers `α`
-and `β`.
+These public methods check their arguments (for having the same axes and thus
+the same indices) and call one of the specialized methods listed below
+depending on the operation, on the type of the array arguments, and on the
+specific values of the multipliers `α` and `β`.
 
 | Operation         | Specialized method                    | Remarks                  |
 |:------------------|:--------------------------------------|:-------------------------|
@@ -198,7 +198,7 @@ compatible. Any scalar argument (`α` and `β`) shall never be zero and shall
 have been converted to the correct floating-point type (this conversion is
 automatically done by the constructors `αx`, `αxpy`, `αxmy`, and `αxpβy`). The
 code of the high-level methods shall be simple enough for these methods to be
-inlined. This may lead to some optimizations (when the multipliers have
+in-lined. This may lead to some optimizations (when the multipliers have
 specific values like 0 or ±1).
 
 Remarks:
@@ -225,7 +225,7 @@ Remarks:
   f2 = αxpy(α,x)
   f2(xᵢ,yᵢ) -> α*xᵢ + yᵢ
   f3 = αxmy(α,x)
-  f3(xᵢ,yᵢ) -> α*x - y
+  f3(xᵢ,yᵢ) -> α*xᵢ - yᵢ
   f4 = αxpβyy(α,x,β,y)
   f4(xᵢ,yᵢ) -> α*xᵢ + β*yᵢ
   ```

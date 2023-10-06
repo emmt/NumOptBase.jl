@@ -135,8 +135,8 @@ end
 overwrites destination `dst` with `α⋅x` and returns `dst`. If `iszero(α)`
 holds, zero-fill `dst` whatever the values in `x`.
 
-Optional argument `E` specifies which *engine* to be use for the computations.
-If unspecified, `E = NumOptBase.engine(dst, x)` is assumed.
+Optional argument `E` specifies which *engine* to use for the computations. If
+unspecified, `E = NumOptBase.engine(dst, x)` is assumed.
 
 """
 function scale!(dst::AbstractArray{T,N},
@@ -167,8 +167,8 @@ end
 overwrites `x` with `α⋅x` and returns `x`. If `iszero(α)` holds, zero-fill `x`
 whatever its contents.
 
-Optional argument `E` specifies which *engine* to be use for the computations.
-If unspecified, `E = NumOptBase.engine(x)` is assumed.
+Optional argument `E` specifies which *engine* to use for the computations. If
+unspecified, `E = NumOptBase.engine(x)` is assumed.
 
 """
 scale!(α::Real, x::AbstractArray) = scale!(x, α)
@@ -191,8 +191,8 @@ end
 overwrites destination `dst` with `dst + α⋅x` and returns `dst`. This is an
 optimized version of `NumOptBase.combine!(dst,1,dst,α,x)`.
 
-Optional argument `E` specifies which *engine* to be use for the computations.
-If unspecified, `E = NumOptBase.engine(dst, x)` is assumed.
+Optional argument `E` specifies which *engine* to use for the computations. If
+unspecified, `E = NumOptBase.engine(dst, x)` is assumed.
 
 """
 function update!(dst::AbstractArray{T,N},
@@ -220,8 +220,8 @@ end
 overwrites destination `dst` with the element-wise multiplication (Hadamard
 product) of `x` by `y` and returns `dst`.
 
-Optional argument `E` specifies which *engine* to be use for the computations.
-If unspecified, `E = NumOptBase.engine(dst, x, y)` is assumed.
+Optional argument `E` specifies which *engine* to use for the computations. If
+unspecified, `E = NumOptBase.engine(dst, x, y)` is assumed.
 
 """
 function multiply!(dst::AbstractArray{T,N},
@@ -245,8 +245,8 @@ end
 overwrites destination `dst` with the linear combination `α⋅x + β⋅y` and
 returns `dst`.
 
-Optional argument `E` specifies which *engine* to be use for the computations.
-If unspecified, `E = NumOptBase.engine(dst, x, y)` is assumed.
+Optional argument `E` specifies which *engine* to use for the computations. If
+unspecified, `E = NumOptBase.engine(dst, x, y)` is assumed.
 
 """
 function combine!(dst::AbstractArray{T,N},
@@ -329,8 +329,8 @@ yields the inner product of `x` and `y` computed as expected by numerical
 optimization methods. If optional argument `w` is specified, `Σᵢ wᵢ⋅xᵢ⋅yᵢ` is
 returned.
 
-Optional argument `E` specifies which *engine* to be use for the computations.
-If unspecified, `E = NumOptBase.engine([w,] x, y)` is assumed.
+Optional argument `E` specifies which *engine* to use for the computations. If
+unspecified, `E = NumOptBase.engine([w,] x, y)` is assumed.
 
 """
 inner(x::AbstractArray, y::AbstractArray) = inner(engine(x, y), x, y)
@@ -359,8 +359,8 @@ inner(w::Real, x::Real, y::Real) = w*x*y
 yields the ℓ₁ norm of `x` considered as a real-valued *vector* (i.e, as if `x`
 has been flattened).
 
-Optional argument `E` specifies which *engine* to be use for the computations.
-If unspecified, `E = NumOptBase.engine(x)` is assumed.
+If `x` is an array, optional argument `E` specifies which *engine* to use for
+the computations. If unspecified, `E = NumOptBase.engine(x)` is assumed.
 
 """
 norm1(x::Real) = abs(x)
@@ -386,13 +386,13 @@ end
 norm1(::Type{<:Engine}, x::AbstractArray) = mapreduce(norm1, +, x)
 
 """
-    NumOptBase.norm2(x)
+    NumOptBase.norm2([E,] x)
 
 yields the Euclidean norm of `x` considered as a real-valued *vector* (i.e, as
 if `x` has been flattened).
 
-Optional argument `E` specifies which *engine* to be use for the computations.
-If unspecified, `E = NumOptBase.engine(x)` is assumed.
+If `x` is an array, optional argument `E` specifies which *engine* to use for
+the computations. If unspecified, `E = NumOptBase.engine(x)` is assumed.
 
 """
 norm2(x::Real) = abs(x)
@@ -422,13 +422,13 @@ end
 norm2(::Type{<:Engine}, x::AbstractArray) = sqrt(mapreduce(abs2, +, x))
 
 """
-    NumOptBase.norminf(x)
+    NumOptBase.norminf([E,] x)
 
 yields the infinite norm of `x` considered as a real-valued *vector* (i.e, as
 if `x` has been flattened).
 
-Optional argument `E` specifies which *engine* to be use for the computations.
-If unspecified, `E = NumOptBase.engine(x)` is assumed.
+If `x` is an array, optional argument `E` specifies which *engine* to use for
+the computations. If unspecified, `E = NumOptBase.engine(x)` is assumed.
 
 """
 norminf(x::Real) = abs(x)

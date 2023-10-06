@@ -11,19 +11,19 @@ allow for hierarchy.
 
 Explicit loops:
 
-* `LoopEngine` - simple Julia loop with bound checking
+* `LoopEngine` - simple Julia loop with bound checking;
 
-* `InBoundsLoopEngine` - Julia loop without bound checking (`@inbounds`)
+* `InBoundsLoopEngine` - Julia loop without bound checking (`@inbounds`);
 
 * `SimdLoopEngine` - Julia loop without bound checking and with SIMD
-  vectorization (`@inbounds @simd`)
+  vectorization (`@inbounds @simd`);
 
 * `TurboLoopEngine` - Julia loop without bound checking and with AVX
-  vectorization (`@avx` or `@turbo`)
+  vectorization (`@avx` or `@turbo`).
 
 GPU arrays:
 
-* `CudaEngine`
+* `CudaEngine` - implementation suitable for `CuArray`.
 
 Fall-back:
 
@@ -110,7 +110,7 @@ _vectorize(optim::Symbol, loop::Expr) =
     optim === :simd     ? :(@inbounds @simd $loop) :
     optim === :avx      ? :(@avx $loop) :
     optim === :turbo    ? :(@turbo $loop) :
-    error("unknown loop optimizer `$optim`")
+    error("unknown loop optimizer `:$optim`")
 
 # NOTE: dst !== x and axes(dst) == axes(x) must hold
 unsafe_copy!(dst::AbstractArray, x::AbstractArray) = copyto!(dst, x)

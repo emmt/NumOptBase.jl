@@ -33,8 +33,8 @@ end
     @gpu_range(A)
 
 yields the linear range of indices relevant for element-wise operations on GPU
-arrays of same dimensions as `A`. These thread-wise computations cannot be done
-by a regular function.
+arrays of same dimensions as `A`. This facility is provided by a macro because
+these thread-wise computations cannot be done by a regular function.
 
 """
 macro gpu_range(A)
@@ -76,7 +76,7 @@ function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, x::CuArray
         for i in @gpu_range(dst)
             @inbounds dst[i] = f(x[i])
         end
-        nothing
+        return nothing # GPU kernels return nothing
     end
     kernel = @cuda launch=false func!(f, dst, x)
     threads, blocks = gpu_config(kernel, dst)
@@ -89,7 +89,7 @@ function unsafe_map!(::Type{<:CudaEngine}, f::αx, dst::CuArray, x::CuArray)
         for i in @gpu_range(dst)
             @inbounds dst[i] = α*x[i]
         end
-        return nothing
+        return nothing # GPU kernels return nothing
     end
     kernel = @cuda launch=false func!(dst, f.α, x)
     threads, blocks = gpu_config(kernel, dst)
@@ -102,7 +102,7 @@ function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, x::CuArray
         for i in @gpu_range(dst)
             @inbounds dst[i] = f(x[i], y[i])
         end
-        nothing
+        return nothing # GPU kernels return nothing
     end
     kernel = @cuda launch=false func!(f, dst, x, y)
     threads, blocks = gpu_config(kernel, dst)
@@ -115,7 +115,7 @@ function unsafe_map!(::Type{<:CudaEngine}, f::αxpy, dst::CuArray, x::CuArray, y
         for i in @gpu_range(y)
             @inbounds dst[i] = α*x[i] + y[i]
         end
-        return nothing
+        return nothing # GPU kernels return nothing
     end
     kernel = @cuda launch=false func!(dst, f.α, x, y)
     threads, blocks = gpu_config(kernel, y)
@@ -128,7 +128,7 @@ function unsafe_map!(::Type{<:CudaEngine}, f::αxmy, dst::CuArray, x::CuArray, y
         for i in @gpu_range(y)
             @inbounds dst[i] = α*x[i] - y[i]
         end
-        return nothing
+        return nothing # GPU kernels return nothing
     end
     kernel = @cuda launch=false func!(dst, f.α, x, y)
     threads, blocks = gpu_config(kernel, y)
@@ -141,7 +141,7 @@ function unsafe_map!(::Type{<:CudaEngine}, f::αxpβy, dst::CuArray, x::CuArray,
         for i in @gpu_range(dst)
             @inbounds dst[i] = α*x[i] + β*y[i]
         end
-        return nothing
+        return nothing # GPU kernels return nothing
     end
     kernel = @cuda launch=false func!(dst, f.α, x, f.β, y)
     threads, blocks = gpu_config(kernel, dst)
