@@ -426,6 +426,3 @@ norminf(x::AbstractArray) = norminf(engine(x), x)
 
 # Generic implementation based on `mapreduce`.
 norminf(::Type{<:Engine}, x::AbstractArray) = mapreduce(norminf, max, x)
-
-flatten(x::AbstractVector) = x
-flatten(x::AbstractArray) = reshape(x, length(x))

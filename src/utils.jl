@@ -35,6 +35,15 @@ _vectorize(optim::Symbol, loop::Expr) =
     error("unknown loop optimizer `:$optim`")
 
 """
+    NumOptBase.flatten(x)
+
+converts array `x` in to a vector.
+
+"""
+flatten(x::AbstractVector) = x
+flatten(x::AbstractArray) = reshape(x, length(x))
+
+"""
     NumOptBase.convert_multiplier(α, x)
 
 converts scalar real `α` to a floating-point type whose numerical precision is
