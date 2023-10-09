@@ -6,6 +6,21 @@ optimization methods.
 """
 module NumOptBase
 
+export
+    # Vectorized operations:
+    apply!,
+    combine!,
+    # copy!, # FIXME: has a different semantic in Julia Base
+    diag,
+    inner,
+    multiply!,
+    norm1,
+    norm2,
+    norminf,
+    scale!,
+    update!,
+    zerofill!
+
 using TypeUtils
 using ArrayTools: @assert_same_axes
 using LinearAlgebra

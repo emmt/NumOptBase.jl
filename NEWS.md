@@ -1,7 +1,9 @@
 # User visible changes in `NumOptBase`
 
-## Version 1.14
+## Version 0.1.14
 
+- Export public methods (but `copy!` which has a different semantic than in
+  Julia).
 - Alias `NumOptBase.TurboArray{T,N}` for array types suitable for `@turbo` loop
   optimization.
 - Fix tests for non-indexable arrays such as GPU arrays.

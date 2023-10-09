@@ -42,31 +42,34 @@ to remove units before calling the numerical optimization routines.
 
 ## Operations on variables
 
-The methods of `NumOptBase` are considered as low level methods and are not
-automatically exported when `using NumOptBase`. This is also to avoid name
-collision with other packages like `LinearAlgebra`.
+Some Julia methods are already available to deal with the variables of a
+numerical optimization problem. For example, `similar` which may be called to
+create a new array of variables provided the element type is some
+floating-point real.
 
-Except `similar` which may be called to create a new array of variables, all
-other methods either require no additional significant storage or store their
-result in an output array provided by the caller. In that way, the storage
-requirements can be strictly controlled.
+The `NumOptBase` package provides additional methods (described in what
+follows) to operate on *variables* and which either require no additional
+significant storage or store their result in an output array provided by the
+caller. In that way, the storage requirements can be strictly controlled. All
+these *public* methods are exported except `NumOptBase.copy!` which exists in
+Julia base but with a different semantic.
 
 
 ### Norms
 
-`NumOptBase.norm1(x)`, `NumOptBase.norm2(x)`, and `NumOptBase.norminf(x)`
-respectively yield the ℓ₁, Euclidean, and infinite norm of the variables `x`.
-They are similar to the norms in `LinearAlgebra` except that they treat `x` as
-if it is has been flattened into a vector of reals.
+`norm1(x)`, `norm2(x)`, and `norminf(x)` respectively yield the ℓ₁, Euclidean,
+and infinite norm of the variables `x`. They are similar to the norms in
+`LinearAlgebra` except that they treat `x` as if it is has been flattened into
+a vector of reals.
 
 
 ### Inner product
 
-`NumOptBase.inner(x, y)` yields the inner product (also known as *scalar
-product*) of the variables `x` and `y` computed as expected by numerical
-optimization methods; that is as if `x` and `y` are real-valued vectors and
-treating complex values as pairs of reals in that respect. In other words, if
-`x` and `y` are real-valued arrays, their inner product is given by:
+`inner(x, y)` yields the inner product (also known as *scalar product*) of the
+variables `x` and `y` computed as expected by numerical optimization methods;
+that is as if `x` and `y` are real-valued vectors and treating complex values
+as pairs of reals in that respect. In other words, if `x` and `y` are
+real-valued arrays, their inner product is given by:
 
     Σᵢ xᵢ⋅yᵢ
 
@@ -78,7 +81,7 @@ is given by:
 In the above pseudo-codes, index `i` runs over all indices of `x` and `y` which
 may be multi-dimensional arrays but must have the same indices.
 
-`NumOptBase.inner(w, x, y)` yields:
+`inner(w, x, y)` yields:
 
     Σᵢ wᵢ⋅xᵢ⋅yᵢ
 
@@ -88,21 +91,21 @@ must all be real-valued arrays.
 
 ### Scaling, updating, and combining variables
 
-`NumOptBase.scale!(dst, α, x)` overwrites `dst` with `α⋅x` and returns `dst`.
-`α` is a scalar while `dst` and `x` are arrays of the same size. If `iszero(α)`
-holds, `dst` is zero-filled whatever the values in `x`.
+`scale!(dst, α, x)` overwrites `dst` with `α⋅x` and returns `dst`. `α` is a
+scalar while `dst` and `x` are arrays of the same size. If `iszero(α)` holds,
+`dst` is zero-filled whatever the values in `x`.
 
-`NumOptBase.update!(x, β, y)` overwrites `x` with `x + β⋅y` and returns `x`.
-`β` is a scalar while `x` and `y` are arrays of the same size. This is a
-shortcut for `NumOptBase.combine!(x,1,x,β,y)`.
+`update!(x, β, y)` overwrites `x` with `x + β⋅y` and returns `x`. `β` is a
+scalar while `x` and `y` are arrays of the same size. This is a shortcut for
+`combine!(x,1,x,β,y)`.
 
-`NumOptBase.multiply!(dst, x, y)` overwrites `dst` with the element-wise
-multiplication (also known as *Hadamard product*) of `x` by `y` and returns
-`dst`. `dst`, `x`, and `y` must be arrays of the same size.
+`multiply!(dst, x, y)` overwrites `dst` with the element-wise multiplication
+(also known as *Hadamard product*) of `x` by `y` and returns `dst`. `dst`, `x`,
+and `y` must be arrays of the same size.
 
-`NumOptBase.combine!(dst, α, x, β, y)` overwrites `dst` with `α⋅x + β⋅y` and
-returns `dst`. `α` and `β` must be real scalars while `dst`, `x`, and `y` must
-be arrays of the same size.
+`combine!(dst, α, x, β, y)` overwrites `dst` with `α⋅x + β⋅y` and returns
+`dst`. `α` and `β` must be real scalars while `dst`, `x`, and `y` must be
+arrays of the same size.
 
 
 ### Applying mappings
@@ -110,13 +113,13 @@ be arrays of the same size.
 The method:
 
 ``` julia
-NumOptBase.apply!(dst, f, args...) -> dst
+apply!(dst, f, args...) -> dst
 ```
 
 overwrites the destination variables `dst` with the result of applying the
 mapping `f` to arguments `args...`.
 
-As of now, `NumOptBase.apply!` only handles a few types of mappings:
+As of now, `apply!` only handles a few types of mappings:
 
 - If `f` is an array, a generalized matrix-vector multiplication is applied to
   `args...` which must be a single array of variables.
@@ -135,6 +138,12 @@ handle other cases.
 
 ### Other operations
 
+`NumOptBase.copy!(dst, src)` overwrites the destination array `dst` with the
+contents of the source array `src` throwing an error if they do not have the
+same axes. If checking that the arguments have the same axes is not necessary,
+the end-user may use `copyto!(dst, src)` or `copy!(dst, src)` which are basic
+Julia methods.
+
 It is assumed that a few standard Julia methods are implemented in an efficient
 way for the type of array storing the variables:
 
@@ -150,19 +159,19 @@ To extend the `NumOptBase` to other array types, some understanding of the
 implementation of this package is needed. The **public methods** which can be
 called by the end-users are summarized in the following table.
 
-| Public method           | Description             | Remarks                        |
-|:------------------------|:------------------------|:-------------------------------|
-| `similar(x)`            | Yield an array like `x` | Same as `similar` in Julia     |
-| `zerofill!(dst)`        | Zero-fill `dst`         |                                |
-| `copy!(dst,x)`          | Copy `x` into `dst`     | Same as `copy!` in Julia ≥ 1.1 |
-| `scale!(dst,α,x)`       | `dst = α*x`             |                                |
-| `update!(dst,α,x)`      | `dst += α*x`            |                                |
-| `combine!(dst,α,x,β,y)` | `dst = α*x + β*y`       |                                |
-| `inner(x,y)`            | Inner product           |                                |
-| `inner(w,x,y)`          | Triple inner product    |                                |
-| `norm1(x)`              | ℓ₁ norm                 |                                |
-| `norm2(x)`              | Euclidean norm          |                                |
-| `norminf(x)`            | Infinite norm           |                                |
+| Public method             | Description             | Remarks                            |
+|:--------------------------|:------------------------|:-----------------------------------|
+| `similar(x)`              | Yield an array like `x` |                                    |
+| `zerofill!(dst)`          | Zero-fill `dst`         |                                    |
+| `NumOptBase.copy!(dst,x)` | Copy `x` into `dst`     | See `copyto!` and `copy!` in Julia |
+| `scale!(dst,α,x)`         | `dst = α*x`             |                                    |
+| `update!(dst,α,x)`        | `dst += α*x`            |                                    |
+| `combine!(dst,α,x,β,y)`   | `dst = α*x + β*y`       |                                    |
+| `inner(x,y)`              | Inner product           |                                    |
+| `inner(w,x,y)`            | Triple inner product    |                                    |
+| `norm1(x)`                | ℓ₁ norm                 |                                    |
+| `norm2(x)`                | Euclidean norm          |                                    |
+| `norminf(x)`              | Infinite norm           |                                    |
 
 In the above table and hereinafter, `dst`, `w`, `x`, and `y` denote arrays
 (considered as *vectors*), `α` and `β` denote scalar reals, and all operations

@@ -111,44 +111,44 @@ function test_operations(;
         y = wrapper(y_ref)
         z = similar(x)
         @testset "norm1" begin
-            let xᵢ = first(x_ref), res = @inferred NumOptBase.norm1(xᵢ)
+            let xᵢ = first(x_ref), res = @inferred norm1(xᵢ)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norm1(xᵢ)
             end
-            let res = @inferred NumOptBase.norm1(x)
+            let res = @inferred norm1(x)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norm1(x_ref)
             end
         end
         @testset "norm2" begin
-            let xᵢ = first(x_ref), res = @inferred NumOptBase.norm2(xᵢ)
+            let xᵢ = first(x_ref), res = @inferred norm2(xᵢ)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norm2(xᵢ)
             end
-            let res = @inferred NumOptBase.norm2(x)
+            let res = @inferred norm2(x)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norm2(x_ref)
             end
         end
         @testset "norminf" begin
-            let xᵢ = first(x_ref), res = @inferred NumOptBase.norminf(xᵢ)
+            let xᵢ = first(x_ref), res = @inferred norminf(xᵢ)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norminf(xᵢ)
             end
-            let res = @inferred NumOptBase.norminf(x)
+            let res = @inferred norminf(x)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_norminf(x_ref)
             end
         end
         @testset "inner product" begin
-            let res = @inferred NumOptBase.inner(x, y)
+            let res = @inferred inner(x, y)
                 @test typeof(res) === real(T)
                 @test res ≈ ref_inner(x_ref, y_ref)
             end
             if T <: Complex
-                @test_throws Exception NumOptBase.inner(w, x, y)
+                @test_throws Exception inner(w, x, y)
             else
-                let res = @inferred NumOptBase.inner(w, x, y)
+                let res = @inferred inner(w, x, y)
                     @test typeof(res) === real(T)
                     @test res ≈ ref_inner(w_ref, x_ref, y_ref)
                 end
@@ -156,46 +156,46 @@ function test_operations(;
         end
         @testset "zero-fill" begin
             copyto!(z, x)
-            let res = @inferred NumOptBase.zerofill!(z)
+            let res = @inferred zerofill!(z)
                 @test res === z
                 @test all(iszero, z)
             end
         end
         @testset "copy" begin
-            NumOptBase.zerofill!(z)
+            zerofill!(z)
             let res = @inferred NumOptBase.copy!(z, x)
                 @test res === z
                 @test z == x
             end
         end
         @testset "scale! α = $α" for α in alphas
-            let res = @inferred NumOptBase.scale!(z, α, x)
+            let res = @inferred scale!(z, α, x)
                 @test res === z
                 @test copyto!(tmp, res) ≈ (@. α*x_ref)
             end
-            let res = @inferred NumOptBase.scale!(α, copyto!(z, x))
+            let res = @inferred scale!(α, copyto!(z, x))
                 @test res === z
                 @test copyto!(tmp, res) ≈ (@. α*x_ref)
             end
-            let res = @inferred NumOptBase.scale!(copyto!(z, x), α)
+            let res = @inferred scale!(copyto!(z, x), α)
                 @test res === z
                 @test copyto!(tmp, res) ≈ (@. α*x_ref)
             end
         end
         @testset "multiply!" begin
-            let res = @inferred NumOptBase.multiply!(z, x, y)
+            let res = @inferred multiply!(z, x, y)
                 @test res === z
                 @test copyto!(tmp, res) ≈ (@. x_ref*y_ref)
             end
         end
         @testset "update! α = $α" for α in alphas
-            let res = @inferred NumOptBase.update!(copyto!(z, y), α, x)
+            let res = @inferred update!(copyto!(z, y), α, x)
                 @test res === z
                 @test copyto!(tmp, res) ≈ (@. y_ref + α*x_ref)
             end
         end
         @testset "combine! α = $α, β = $β" for α in alphas, β ∈ betas
-            let res = @inferred NumOptBase.combine!(z, α, x, β, y)
+            let res = @inferred combine!(z, α, x, β, y)
                 @test res === z
                 @test copyto!(tmp, res) ≈ (@. α*x_ref + β*y_ref)
             end
@@ -205,7 +205,6 @@ end
 
 function test_operators()
     Diag = NumOptBase.Diag
-    apply! = NumOptBase.apply!
     @testset "Operators" begin
         T = Float32
         dims = (2,3,4)
