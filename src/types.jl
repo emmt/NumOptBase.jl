@@ -117,6 +117,14 @@ is the abstract type identifying implementation with `@avx` or `@turbo` loops.
 abstract type TurboLoopEngine <: SimdLoopEngine end
 
 """
+    NumOptBase.TurboArray{T,N}
+
+is the type(s) of arrays suitable for `@turbo` optimized loops.
+
+"""
+const TurboArray{T,N} = StridedArray{T,N}
+
+"""
     NumOptBase.CudaEngine <: NumOptBase.Engine
 
 is the abstract type identifying implementation for CUDA arrays.

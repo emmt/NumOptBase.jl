@@ -2,6 +2,8 @@
 
 ## Version 1.14
 
+- Alias `NumOptBase.TurboArray{T,N}` for array types suitable for `@turbo` loop
+  optimization.
 - Fix tests for non-indexable arrays such as GPU arrays.
 - Extend compatibility to `CUDA` package version 5.
 

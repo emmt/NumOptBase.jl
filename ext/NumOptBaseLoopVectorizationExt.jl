@@ -3,13 +3,13 @@ module NumOptBaseLoopVectorizationExt
 if isdefined(Base, :get_extension)
     using LoopVectorization
     import NumOptBase
-    using NumOptBase: SimdLoopEngine, TurboLoopEngine
     import NumOptBase: inner, norm1, norminf, unsafe_map!, unsafe_inner
+    using NumOptBase: SimdLoopEngine, TurboLoopEngine, TurboArray
 else
     using ..LoopVectorization
     import ..NumOptBase
-    using ..NumOptBase: SimdLoopEngine, TurboLoopEngine
     import ..NumOptBase: inner, norm1, norminf, unsafe_map!, unsafe_inner
+    using ..NumOptBase: SimdLoopEngine, TurboLoopEngine, TurboArray
 end
 
 # The @turbo macro was introduced in LoopVectorization 0.12.22 to replace @avx.
@@ -37,8 +37,8 @@ end
         LoopVectorization.ArrayInterface.can_avx : f -> false
 
     @inline function unsafe_inner(::Type{<:TurboLoopEngine},
-                                  x::StridedArray{T,N},
-                                  y::StridedArray{T,N}) where {T<:HWReal,N}
+                                  x::TurboArray{T,N},
+                                  y::TurboArray{T,N}) where {T<:HWReal,N}
         acc = inner(zero(eltype(x)), zero(eltype(y)))
         @turbo for i in eachindex(x, y)
             acc += inner(x[i], y[i])
@@ -47,9 +47,9 @@ end
     end
 
     @inline function unsafe_inner(::Type{<:TurboLoopEngine},
-                                  w::StridedArray{T,N},
-                                  x::StridedArray{T,N},
-                                  y::StridedArray{T,N}) where {T<:HWReal,N}
+                                  w::TurboArray{T,N},
+                                  x::TurboArray{T,N},
+                                  y::TurboArray{T,N}) where {T<:HWReal,N}
         acc = inner(zero(eltype(w)), zero(eltype(x)), zero(eltype(y)))
         @turbo for i in eachindex(w, x, y)
             acc += inner(w[i], x[i], y[i])
@@ -58,7 +58,7 @@ end
     end
 
     @inline function norm1(::Type{<:TurboLoopEngine},
-                           x::StridedArray{T,N}) where {T<:HWReal,N}
+                           x::TurboArray{T,N}) where {T<:HWReal,N}
         acc = zero(eltype(x))
         @turbo for i in eachindex(x)
             acc += abs(x[i])
@@ -67,7 +67,7 @@ end
     end
 
     @inline function norm2(::Type{<:TurboLoopEngine},
-                           x::StridedArray{T,N}) where {T<:HWReal,N}
+                           x::TurboArray{T,N}) where {T<:HWReal,N}
         acc = zero(eltype(x))
         @turbo for i in eachindex(x)
             acc += abs2(x[i])
@@ -76,7 +76,7 @@ end
     end
 
     @inline function norminf(::Type{<:TurboLoopEngine},
-                             x::StridedArray{T,N}) where {T<:HWReal,N}
+                             x::TurboArray{T,N}) where {T<:HWReal,N}
         r = zero(eltype(x))
         @turbo for i in eachindex(x)
             a = abs(x[i])
@@ -87,8 +87,8 @@ end
 
     @inline function unsafe_map!(::Type{<:TurboLoopEngine},
                                  f::Function,
-                                 dst::StridedArray{T,N},
-                                 x::StridedArray{T,N}) where {T<:HWReal,N}
+                                 dst::TurboArray{T,N},
+                                 x::TurboArray{T,N}) where {T<:HWReal,N}
         if can_avx(f)
             @turbo for i in eachindex(dst, x)
                 dst[i] = f(x[i])
@@ -97,14 +97,14 @@ end
             # Fallback to SIMD loop vectorization.
             unsafe_map!(SimdLoopEngine, f, dst, x)
         end
-        nothing
+        return nothing
     end
 
     @inline function unsafe_map!(::Type{<:TurboLoopEngine},
                                  f::Function,
-                                 dst::StridedArray{T,N},
-                                 x::StridedArray{T,N},
-                                 y::StridedArray{T,N}) where {T<:HWReal,N}
+                                 dst::TurboArray{T,N},
+                                 x::TurboArray{T,N},
+                                 y::TurboArray{T,N}) where {T<:HWReal,N}
         if can_avx(f)
             @turbo for i in eachindex(dst, x, y)
                 dst[i] = f(x[i], y[i])
@@ -113,7 +113,7 @@ end
             # Fallback to SIMD loop vectorization.
             unsafe_map!(SimdLoopEngine, f, dst, x, y)
         end
-        nothing
+        return nothing
     end
 
 else
