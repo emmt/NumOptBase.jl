@@ -482,7 +482,7 @@ function runtests(w::AbstractArray, x::AbstractArray, y::AbstractArray;
         println()
         println("Scaling (≈ $(n) ops)")
         print(    "  NumOptBase.scale!( z, α, x) "); @btime NumOptBase.scale!(  $z, $α, $x)
-        print(    "  vscale_none!(     z, α, x) "); @btime vscale_none!(      $z, $α, $x)
+        print(    "  vscale_none!(      z, α, x) "); @btime vscale_none!(      $z, $α, $x)
         print(    "  vscale_inbounds!(  z, α, x) "); @btime vscale_inbounds!(   $z, $α, $x)
         print(    "  vscale_simd!(      z, α, x) "); @btime vscale_simd!(       $z, $α, $x)
         if use_turbo || use_avx

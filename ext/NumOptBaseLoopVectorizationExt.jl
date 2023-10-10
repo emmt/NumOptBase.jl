@@ -2,14 +2,33 @@ module NumOptBaseLoopVectorizationExt
 
 if isdefined(Base, :get_extension)
     using LoopVectorization
-    import NumOptBase
-    import NumOptBase: inner, norm1, norminf, unsafe_map!, unsafe_inner
-    using NumOptBase: SimdLoopEngine, TurboLoopEngine, TurboArray
+    using NumOptBase
+    using NumOptBase:
+        SimdLoopEngine,
+        TurboArray,
+        TurboLoopEngine
+    import NumOptBase:
+        norm1,
+        norm2,
+        norminf,
+        unsafe_inner,
+        unsafe_map!
 else
     using ..LoopVectorization
-    import ..NumOptBase
-    import ..NumOptBase: inner, norm1, norminf, unsafe_map!, unsafe_inner
-    using ..NumOptBase: SimdLoopEngine, TurboLoopEngine, TurboArray
+    using ..NumOptBase
+    using ..NumOptBase:
+        SimdLoopEngine,
+        TurboArray,
+        TurboLoopEngine
+    import ..NumOptBase:
+        norm1,
+        norm2,
+        norminf,
+        unsafe_inner,
+        unsafe_map!,
+        unsafe_project_direction!,
+        unsafe_project_variables!,
+        unsafe_unblocked_variables!
 end
 
 # The @turbo macro was introduced in LoopVectorization 0.12.22 to replace @avx.

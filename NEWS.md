@@ -1,5 +1,9 @@
 # User visible changes in `NumOptBase`
 
+## Version 0.1.15
+
+- Fix imports in turbo code.
+
 ## Version 0.1.14
 
 - Export public methods (but `copy!` which has a different semantic than in
