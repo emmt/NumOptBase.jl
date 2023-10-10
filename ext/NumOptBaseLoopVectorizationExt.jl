@@ -25,10 +25,7 @@ else
         norm2,
         norminf,
         unsafe_inner,
-        unsafe_map!,
-        unsafe_project_direction!,
-        unsafe_project_variables!,
-        unsafe_unblocked_variables!
+        unsafe_map!
 end
 
 # The @turbo macro was introduced in LoopVectorization 0.12.22 to replace @avx.
