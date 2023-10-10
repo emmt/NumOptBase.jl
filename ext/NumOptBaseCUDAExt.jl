@@ -21,8 +21,8 @@ if isdefined(Base, :get_extension)
         unsafe_copy!,
         unsafe_inner,
         unsafe_linesearch_limits,
-        unsafe_linesearch_max_step,
-        unsafe_linesearch_min_step,
+        unsafe_linesearch_stepmax,
+        unsafe_linesearch_stepmin,
         unsafe_map!,
         unsafe_project_direction!,
         unsafe_project_variables!,
@@ -49,8 +49,8 @@ else
         unsafe_copy!,
         unsafe_inner,
         unsafe_linesearch_limits,
-        unsafe_linesearch_max_step,
-        unsafe_linesearch_min_step,
+        unsafe_linesearch_stepmax,
+        unsafe_linesearch_stepmin,
         unsafe_map!,
         unsafe_project_direction!,
         unsafe_project_variables!,
@@ -297,7 +297,7 @@ function unsafe_unblocked_variables!(::Type{<:CudaEngine},
 end
 
 # FIXME: The returned value is conservative.
-function unsafe_linesearch_min_step(::Type{<:CudaEngine},
+function unsafe_linesearch_stepmin(::Type{<:CudaEngine},
                                     x::CuArray{T,N},
                                     pm::PlusOrMinus,
                                     d::CuArray{T,N},
@@ -307,7 +307,7 @@ function unsafe_linesearch_min_step(::Type{<:CudaEngine},
 end
 
 # FIXME: The returned value is conservative.
-function unsafe_linesearch_max_step(::Type{<:CudaEngine},
+function unsafe_linesearch_stepmax(::Type{<:CudaEngine},
                                     x::CuArray{T,N},
                                     pm::PlusOrMinus,
                                     d::CuArray{T,N},
@@ -323,8 +323,8 @@ function unsafe_linesearch_limits(::Type{<:CudaEngine},
                                   d::CuArray{T,N},
                                   lower::CuBound{T,N},
                                   upper::CuBound{T,N}) where {T,N}
-    return (unsafe_linesearch_min_step(CudaEngine, x, pm, d, lower, upper),
-            unsafe_linesearch_max_step(CudaEngine, x, pm, d, lower, upper))
+    return (unsafe_linesearch_stepmin(CudaEngine, x, pm, d, lower, upper),
+            unsafe_linesearch_stepmax(CudaEngine, x, pm, d, lower, upper))
 end
 
 end # module

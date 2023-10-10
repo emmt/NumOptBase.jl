@@ -211,14 +211,14 @@ variables are all the same for any `α` such that `α ≥ αₘₐₓ ≥ 0`.
     For efficiency, it is assumed without checking that `x₀` is feasible, that
     is `x₀ ∈ Ω` holds.
 
-See also [`linesearch_min_step`](@ref) or [`linesearch_max_step`](@ref) if only
+See also [`linesearch_stepmin`](@ref) or [`linesearch_stepmax`](@ref) if only
 one of `αₘᵢₙ` or `αₘₐₓ` is needed.
 
 """
 linesearch_limits
 
 """
-    linesearch_min_step([E,] x₀, ±, d, Ω) -> αₘᵢₙ
+    linesearch_stepmin([E,] x₀, ±, d, Ω) -> αₘᵢₙ
 
 yields the greatest nonnegative step length `αₘᵢₙ` such that:
 
@@ -230,10 +230,9 @@ is either `+` or `-`.
 See [`linesearch_limits`](@ref) for details.
 
 """
-linesearch_min_step
-
+linesearch_stepmin
 """
-    linesearch_max_step([E,] x₀, ±, d, Ω) -> αₘₐₓ
+    linesearch_stepmax([E,] x₀, ±, d, Ω) -> αₘₐₓ
 
 yields the least nonnegative step length `αₘₐₓ` such that:
 
@@ -245,9 +244,8 @@ is either `+` or `-`.
 See [`linesearch_limits`](@ref) for details.
 
 """
-linesearch_max_step
-
-for func in (:linesearch_limits, :linesearch_min_step, :linesearch_max_step)
+linesearch_stepmax
+for func in (:linesearch_limits, :linesearch_stepmin, :linesearch_stepmax)
     unsafe_func = Symbol("unsafe_",func)
     @eval begin
         function $func(x::AbstractArray{T,N},
@@ -279,11 +277,11 @@ for func in (:linesearch_limits, :linesearch_min_step, :linesearch_max_step)
     end
 end
 
-unconstrained_result(::typeof(linesearch_min_step), ::Type{T}) where {T} = typemax(T)
-unconstrained_result(::typeof(linesearch_max_step), ::Type{T}) where {T} = typemax(T)
+unconstrained_result(::typeof(linesearch_stepmin), ::Type{T}) where {T} = typemax(T)
+unconstrained_result(::typeof(linesearch_stepmax), ::Type{T}) where {T} = typemax(T)
 unconstrained_result(::typeof(linesearch_limits), ::Type{T}) where {T} =
-    (unconstrained_result(linesearch_min_step, T),
-     unconstrained_result(linesearch_max_step, T))
+    (unconstrained_result(linesearch_stepmin, T),
+     unconstrained_result(linesearch_stepmax, T))
 
 # Unsafe implementations for basic engines.
 for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
@@ -331,38 +329,38 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                           d::AbstractArray{T,N},
                                           lower::Bound{T,N},
                                           upper::Bound{T,N}) where {T,N}
-            αmin, αmax = initial_min_step(T), initial_max_step(T)
+            αmin, αmax = initial_stepmin(T), initial_stepmax(T)
             @vectorize $optim for i in eachindex(x, d, only_arrays(lower, upper)...)
                 αmin, αmax = update_limits(αmin, αmax, x[i], pm, d[i],
                                            get_bound(lower, i), get_bound(upper, i))
             end
-            return final_min_step(αmin), final_max_step(αmax)
+            return final_stepmin(αmin), final_stepmax(αmax)
         end
-        function unsafe_linesearch_min_step(::Type{<:$engine},
+        function unsafe_linesearch_stepmin(::Type{<:$engine},
                                             x::AbstractArray{T,N},
                                             pm::PlusOrMinus,
                                             d::AbstractArray{T,N},
                                             lower::Bound{T,N},
                                             upper::Bound{T,N}) where {T,N}
-            αmin = initial_min_step(T)
+            αmin = initial_stepmin(T)
             @vectorize $optim for i in eachindex(x, d, only_arrays(lower, upper)...)
-                αmin = update_min_step(αmin, x[i], pm, d[i],
+                αmin = update_stepmin(αmin, x[i], pm, d[i],
                                        get_bound(lower, i), get_bound(upper, i))
             end
-            return final_min_step(αmin)
+            return final_stepmin(αmin)
         end
-        function unsafe_linesearch_max_step(::Type{<:$engine},
+        function unsafe_linesearch_stepmax(::Type{<:$engine},
                                             x::AbstractArray{T,N},
                                             pm::PlusOrMinus,
                                             d::AbstractArray{T,N},
                                             lower::Bound{T,N},
                                             upper::Bound{T,N}) where {T,N}
-            αmax = initial_max_step(T)
+            αmax = initial_stepmax(T)
             @vectorize $optim for i in eachindex(x, d, only_arrays(lower, upper)...)
-                αmax = update_max_step(αmax, x[i], pm, d[i],
+                αmax = update_stepmax(αmax, x[i], pm, d[i],
                                        get_bound(lower, i), get_bound(upper, i))
             end
-            return final_max_step(αmax)
+            return final_stepmax(αmax)
         end
     end
 end
@@ -441,14 +439,14 @@ step_to_bound(x::T, ::Plus,  d::T, b::T) where {T<:Real} = (b - x)/d
 step_to_bound(x::T, ::Minus, d::T, b::T) where {T<:Real} = (x - b)/d
 #
 # Initialize, update, and finalize αmin.
-initial_min_step(::Type{T}) where {T<:AbstractFloat} = typemax(T)
-update_min_step(αmin::T, α::T) where {T<:AbstractFloat} = zero(α) ≤ α < αmin ? α : αmin
-final_min_step(αmin::AbstractFloat) = αmin
+initial_stepmin(::Type{T}) where {T<:AbstractFloat} = typemax(T)
+update_stepmin(αmin::T, α::T) where {T<:AbstractFloat} = zero(α) ≤ α < αmin ? α : αmin
+final_stepmin(αmin::AbstractFloat) = αmin
 #
 # Initialize, update, and finalize αmax.
-initial_max_step(::Type{T}) where {T<:AbstractFloat} = -one(T)
-update_max_step(αmax::T, α::T) where {T<:AbstractFloat} = α > αmax ? α : αmax
-final_max_step(αmax::AbstractFloat) = αmax ≥ zero(αmax) ? αmax : typemax(αmax)
+initial_stepmax(::Type{T}) where {T<:AbstractFloat} = -one(T)
+update_stepmax(αmax::T, α::T) where {T<:AbstractFloat} = α > αmax ? α : αmax
+final_stepmax(αmax::AbstractFloat) = αmax ≥ zero(αmax) ? αmax : typemax(αmax)
 
 function update_limits(αmin::T, αmax::T, x::T, pm::PlusOrMinus, d::T,
                        lower::L, upper::U) where {T<:AbstractFloat,
@@ -456,43 +454,43 @@ function update_limits(αmin::T, αmax::T, x::T, pm::PlusOrMinus, d::T,
                                                   U<:Union{T,Nothing}}
     if L === T
         α = step_to_bound(x, pm, d, lower)
-        αmin = update_min_step(αmin, α)
-        αmax = update_max_step(αmax, α)
+        αmin = update_stepmin(αmin, α)
+        αmax = update_stepmax(αmax, α)
     end
     if U === T
         α = step_to_bound(x, pm, d, upper)
-        αmin = update_min_step(αmin, α)
-        αmax = update_max_step(αmax, α)
+        αmin = update_stepmin(αmin, α)
+        αmax = update_stepmax(αmax, α)
     end
     return αmin, αmax
 end
 
-function update_min_step(αmin::T, x::T, pm::PlusOrMinus, d::T,
+function update_stepmin(αmin::T, x::T, pm::PlusOrMinus, d::T,
                          lower::L, upper::U) where {T<:AbstractFloat,
                                                     L<:Union{T,Nothing},
                                                     U<:Union{T,Nothing}}
     if L === T
         α = step_to_bound(x, pm, d, lower)
-        αmin = update_min_step(αmin, α)
+        αmin = update_stepmin(αmin, α)
     end
     if U === T
         α = step_to_bound(x, pm, d, upper)
-        αmin = update_min_step(αmin, α)
+        αmin = update_stepmin(αmin, α)
     end
     return αmin
 end
 
-function update_max_step(αmax::T, x::T, pm::PlusOrMinus, d::T,
+function update_stepmax(αmax::T, x::T, pm::PlusOrMinus, d::T,
                          lower::L, upper::U) where {T<:AbstractFloat,
                                                     L<:Union{T,Nothing},
                                                     U<:Union{T,Nothing}}
     if L === T
         α = step_to_bound(x, pm, d, lower)
-        αmax = update_max_step(αmax, α)
+        αmax = update_stepmax(αmax, α)
     end
     if U === T
         α = step_to_bound(x, pm, d, upper)
-        αmax = update_max_step(αmax, α)
+        αmax = update_stepmax(αmax, α)
     end
     return αmax
 end

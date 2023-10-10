@@ -343,14 +343,14 @@ end
 function ref_linesearch_limits(x::AbstractArray{T,N},
                                pm::NumOptBase.PlusOrMinus, d::AbstractArray{T,N},
                                Ω::BoundedSet{T,N}) where {T,N}
-    amin = ref_linesearch_min_step(x, pm, d, Ω)
-    amax = ref_linesearch_max_step(x, pm, d, Ω)
+    amin = ref_linesearch_stepmin(x, pm, d, Ω)
+    amax = ref_linesearch_stepmax(x, pm, d, Ω)
     return amin, amax
 end
 
-# Reference version of linesearch_min_step. Not meant to be smart, just to
+# Reference version of linesearch_stepmin. Not meant to be smart, just to
 # provide correct result.
-function ref_linesearch_min_step(x::AbstractArray{T,N},
+function ref_linesearch_stepmin(x::AbstractArray{T,N},
                                  pm::NumOptBase.PlusOrMinus, d::AbstractArray{T,N},
                                  Ω::BoundedSet{T,N}) where {T,N}
     cnt = 0
@@ -372,9 +372,9 @@ function ref_linesearch_min_step(x::AbstractArray{T,N},
     return amin::T
 end
 
-# Reference version of linesearch_max_step. Not meant to be smart, just to
+# Reference version of linesearch_stepmax. Not meant to be smart, just to
 # provide correct result.
-function ref_linesearch_max_step(x::AbstractArray{T,N},
+function ref_linesearch_stepmax(x::AbstractArray{T,N},
                                  pm::NumOptBase.PlusOrMinus, d::AbstractArray{T,N},
                                  Ω::BoundedSet{T,N}) where {T,N}
     amax = T(NaN)
@@ -483,8 +483,8 @@ function test_bounds()
             @test y === @inferred unblocked_variables!(y, x, pm, d, Ω)
             @test y == ref_unblocked_variables!(z, x, pm, d, Ω)
             amin, amax = linesearch_limits(x, pm, d, Ω)
-            @test  amin        == @inferred linesearch_min_step(x, pm, d, Ω)
-            @test        amax  == @inferred linesearch_max_step(x, pm, d, Ω)
+            @test  amin        == @inferred linesearch_stepmin(x, pm, d, Ω)
+            @test        amax  == @inferred linesearch_stepmax(x, pm, d, Ω)
             @test (amin, amax) == @inferred linesearch_limits(x, pm, d, Ω)
         end
     end

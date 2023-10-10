@@ -256,13 +256,13 @@ which overwrites the destination `dp` and where `±` is either `+` or `-`.
 A closely related function is:
 
 ``` julia
-unblocked_variables!(b, x, ±, d, Ω)
+unblocked_variables!(a, x, ±, d, Ω)
 ```
 
-which overwrites the destination `b` with ones where variables in `x ∈ Ω` are
-not blocked by the constraints implemented by `Ω` along direction `±d` and
-zeros elsewhere. The projected direction `dp` and `b` are related by
-`dp = b.*d`.
+which overwrites the destination `a` with ones where variables in `x ∈ Ω` are
+not blocked by the constraints implemented by `Ω` along the direction `±d` and
+zeros elsewhere. The projected direction `dp` and `a` are related by
+`dp = a .* d`.
 
 When line-searching, two specific values of the step length `α ≥ 0` are of
 interest:
@@ -284,13 +284,13 @@ variables are all the same for any `α` such that `α ≥ αₘₐₓ`. The valu
 `αₘᵢₙ` and/or `αₘₐₓ` can be computed by one of:
 
 ``` julia
-αₘᵢₙ = linesearch_min_step(x, ±, d, Ω)
-αₘₐₓ = linesearch_max_step(x, ±, d, Ω)
+αₘᵢₙ = linesearch_stepmin(x, ±, d, Ω)
+αₘₐₓ = linesearch_stepmax(x, ±, d, Ω)
 αₘᵢₙ, αₘₐₓ = linesearch_limits(x, ±, d, Ω)
 ```
 
 Note that, for efficiency, `project_direction!`, `unblocked_variables!`,
-`linesearch_min_step`, `linesearch_max_step`, and `linesearch_limits` assume
+`linesearch_stepmin`, `linesearch_stepmax`, and `linesearch_limits` assume
 without checking that the input variables `x` are feasible, that is that `x ∈
 Ω` holds.
 

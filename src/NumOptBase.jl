@@ -26,8 +26,8 @@ export
     Bound,
     BoundedSet,
     linesearch_limits,
-    linesearch_max_step,
-    linesearch_min_step,
+    linesearch_stepmax,
+    linesearch_stepmin,
     project_direction!,
     project_variables!,
     unblocked_variables!

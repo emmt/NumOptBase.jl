@@ -10,7 +10,7 @@ This branch adds bound constraints.
 
 - New methods for bound constraints: `project_variables!`,
   `project_direction!`, `unblocked_variables!`, `linesearch_limits`,
-  `linesearch_min_step`, and `linesearch_max_step`.
+  `linesearch_stepmin`, and `linesearch_stepmax`.
 
 ## Version 0.1.15
 
