@@ -7,7 +7,11 @@ if isdefined(Base, :get_extension)
         PlusOrMinus,
         SimdLoopEngine,
         TurboArray,
-        TurboLoopEngine
+        TurboLoopEngine,
+        get_bound,
+        is_unblocked,
+        only_arrays,
+        project
     import NumOptBase:
         norm1,
         norm2,
@@ -24,7 +28,11 @@ else
         PlusOrMinus,
         SimdLoopEngine,
         TurboArray,
-        TurboLoopEngine
+        TurboLoopEngine,
+        get_bound,
+        is_unblocked,
+        only_arrays,
+        project
     import ..NumOptBase:
         norm1,
         norm2,

@@ -11,6 +11,7 @@ if !isdefined(Main,:LoopVectorization)
     println()
     @testset "... with LoopVectorization" begin
         TestingNumOptBase.test_operations()
+        TestingNumOptBase.test_bounds()
     end
 end
 

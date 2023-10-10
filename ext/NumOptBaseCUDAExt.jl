@@ -2,16 +2,40 @@ module NumOptBaseCUDAExt
 
 if isdefined(Base, :get_extension)
     using CUDA
-    import NumOptBase
-    using NumOptBase: CudaEngine, RealComplex, inner, convert_multiplier
-    using NumOptBase: αx, αxpy, αxmy, αxpβy
-    import NumOptBase: engine, unsafe_copy!, unsafe_map!, unsafe_inner, norm2, norm1, norminf, zerofill!
+    using NumOptBase
+    using NumOptBase:
+        CudaEngine,
+        RealComplex,
+        convert_multiplier,
+        αx, αxpy, αxmy, αxpβy
+    import NumOptBase:
+        engine,
+        flatten,
+        norm1,
+        norm2,
+        norminf,
+        unsafe_copy!,
+        unsafe_inner,
+        unsafe_map!,
+        zerofill!
 else
     using ..CUDA
-    import ..NumOptBase
-    using ..NumOptBase: CudaEngine, RealComplex, inner, convert_multiplier
-    using ..NumOptBase: αx, αxpy, αxmy, αxpβy
-    import ..NumOptBase: engine, unsafe_copy!, unsafe_map!, unsafe_inner, norm2, norm1, norminf, zerofill!
+    using ..NumOptBase
+    using ..NumOptBase:
+        CudaEngine,
+        RealComplex,
+        convert_multiplier,
+        αx, αxpy, αxmy, αxpβy
+    import ..NumOptBase:
+        engine,
+        flatten,
+        norm1,
+        norm2,
+        norminf,
+        unsafe_copy!,
+        unsafe_inner,
+        unsafe_map!,
+        zerofill!
 end
 
 engine(args::CuArray...) = CudaEngine
