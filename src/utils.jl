@@ -117,7 +117,7 @@ may be used with [`NumOptBase.unsafe_map!`](@ref).
 struct αxpy{A} <: Function
     α::A
 end
-@inline (f::αxpy)(x, y) = f.α*x + y
+@inline (f::αxpy)(x, y) = muladd(f.α, x, y) # f.α*x + y
 αxpy(α::Real, x::AbstractArray) = αxpy(convert_multiplier(α, x))
 
 """
