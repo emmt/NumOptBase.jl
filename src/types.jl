@@ -65,8 +65,8 @@ Explicit loops:
 
 * `InBoundsLoopEngine` - Julia loop without bound checking (`@inbounds`);
 
-* `SimdLoopEngine` - Julia loop without bound checking and with SIMD
-  vectorization (`@inbounds @simd`);
+* `SimdLoopEngine` - Julia loop without bound checking and with SIMD (Single
+  Instruction Multiple Data) vectorization (`@inbounds @simd`);
 
 * `TurboLoopEngine` - Julia loop without bound checking and with AVX
   vectorization (`@avx` or `@turbo`).
@@ -77,7 +77,7 @@ GPU arrays:
 
 Fall-back:
 
-* `Engine`
+* `Engine` - super-type of all engine types.
 
 """
 abstract type Engine end
@@ -86,7 +86,8 @@ abstract type Engine end
     NumOptBase.LoopEngine <: NumOptBase.Engine
 
 is the abstract type identifying implementation with simple loops and bound
-checking.
+checking. Fallback to [`NumOptBase.Engine`](@ref) if no implementation for that
+engine exists.
 
 """
 abstract type LoopEngine <: Engine end
@@ -95,7 +96,8 @@ abstract type LoopEngine <: Engine end
     NumOptBase.InBoundsLoopEngine <: NumOptBase.LoopEngine
 
 is the abstract type identifying implementation with simple in-bounds loops
-(i.e. `@inbounds`).
+(i.e. `@inbounds`). Fallback to [`NumOptBase.LoopEngine`](@ref) if no
+implementation for that engine exists.
 
 """
 abstract type InBoundsLoopEngine <: LoopEngine end
@@ -103,15 +105,28 @@ abstract type InBoundsLoopEngine <: LoopEngine end
 """
     NumOptBase.SimdLoopEngine <: NumOptBase.InBoundsLoopEngine
 
-is the abstract type identifying implementation with `@simd` loops.
+is the abstract type identifying implementations with `@simd` loops, that is
+using SIMD (Single Instruction Multiple Data) instructions. Fallback to
+[`NumOptBase.InBoundsLoopEngine`](@ref) if no implementation for that engine
+exists.
 
 """
 abstract type SimdLoopEngine <: InBoundsLoopEngine end
 
 """
+    NumOptBase.SimdArray{T,N}
+
+is the type(s) of arrays suitable for `@simd` optimized loops.
+
+"""
+const SimdArray{T,N} = AbstractArray{T,N}
+
+"""
     NumOptBase.SimdLoopEngine <: NumOptBase.InBoundsLoopEngine
 
 is the abstract type identifying implementation with `@avx` or `@turbo` loops.
+Fallback to [`NumOptBase.SimdLoopEngine`](@ref) if no implementation for that
+engine exists.
 
 """
 abstract type TurboLoopEngine <: SimdLoopEngine end

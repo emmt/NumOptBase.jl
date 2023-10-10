@@ -3,6 +3,11 @@
 ## Version 0.1.15
 
 - Fix imports in turbo code.
+- Define alias `NumOptBase.SimdArray{T,N}` for array types suitable for `@simd`
+  loop optimization. For now, this is an alias to `AbstractyArray{T,N}` as it
+  is assumed that the `@simd` macro is smart enough to decide whether SIMD loop
+  optimization can be used considering the types of the arrays involved in the
+  loop.
 
 ## Version 0.1.14
 

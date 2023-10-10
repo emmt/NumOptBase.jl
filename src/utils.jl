@@ -6,8 +6,13 @@ arguments `args...`.
 
 """
 engine() = Engine
-@inline engine(::StridedArray...) = TurboLoopEngine
-@inline engine(::AbstractArray...) = Engine
+@inline engine(::TurboArray...) = TurboLoopEngine
+if SimdArray !== TurboArray
+    @inline engine(::SimdArray...) = SimdLoopEngine
+end
+if AbstractArray !== SimdArray && AbstractArray !== TurboArray
+    @inline engine(::AbstractArray...) = Engine
+end
 
 """
     NumOptBase.@vectorize optim for ...
@@ -178,7 +183,7 @@ Argument `E` specifies which *engine* to be use for the computations.
 # Loop-based implementations.
 for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                (:inbounds,  AbstractArray, InBoundsLoopEngine),
-                               (:simd,      StridedArray,  SimdLoopEngine))
+                               (:simd,      SimdArray,     SimdLoopEngine))
     @eval begin
         @inline function unsafe_map!(::Type{<:$engine},
                                      f::Function,
