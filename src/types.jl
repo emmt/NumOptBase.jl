@@ -156,7 +156,7 @@ variables of element type `T` in `NumOptBase` package.
 Bounds may be specified as:
 - `nothing` if the bound is unlimited;
 - a scalar if the bound is the same for all variables;
-- an array of same size as the variables.
+- an array with the same axes as the variables.
 
 Owing to the complexity of managing all possibilities in the methods
 implementing bound constraints, bound specified as arrays *conformable* with

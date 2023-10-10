@@ -153,6 +153,149 @@ way for the type of array storing the variables:
 - `fill!(x, α) -> x` to set all variables in `x` to the value `α`.
 
 
+## Bound constraints
+
+`NumOptBase` provides some support for separable bound constraints on the
+variables. With such constraints, the feasible set is defined by:
+
+```
+Ω = {x ∈ ℝⁿ | ℓ ≤ x ≤ u }
+```
+
+with `ℓ` and `u` the lower and upper bounds and where the comparisons (`≤`) is
+taken element-wise. To represent the feasible set for bound constrained
+`N`-dimensional variables of element type `T` in Julia is done by:
+
+``` julia
+Ω = BoundedSet{T,N}(ℓ, u)
+```
+
+where the lower and upper bounds, `ℓ` and `u`, may be specified as:
+- `nothing` if the bound is unlimited;
+- a scalar if the bound is the same for all variables;
+- an array with the same axes as the variables.
+
+For simplicity and type-stability, there are a number of restrictions which may
+be alleviated in a high level interface:
+- To avoid the complexity of managing all possibilities in the methods
+  implementing bound constraints, bounds specified as arrays *conformable* with
+  the variables are not directly supported. The caller may extend the array of
+  bound values to the same size as the variables.
+- Only `nothing` and the scalars `-∞` (for a lower bound) or `+∞` (for an upper
+  bound) are considered as unlimited bounds even though all values of a lower
+  (resp. upper) bound specified as an array may be `-∞` (resp. `+∞`).
+
+
+### Projection on the feasible set
+
+For any `x ∈ ℝⁿ`, the *projected variables* `xp ∈ Ω` are defined by:
+
+```
+xp = P(x) = argmin ‖y - x‖²   s.t.   y ∈ Ω
+```
+
+where `P` is the projection onto the feasible set `Ω`. In other words, `xp` is
+the element of `Ω` that is the closest (in the least Euclidean distance sense)
+to `x`.
+
+The projected variables are computed by:
+
+``` julia
+project_variables!(xp, x, Ω)
+```
+
+which overwrites the destination `xp` with the projection of `x ∈ ℝⁿ` onto the
+feasible set `Ω ⊆ ℝⁿ`.
+
+
+### Projected direction and line-search
+
+A number of numerical optimization methods proceed by iterations where, at the
+`k`-th iteration, the next iterate writes:
+
+```
+xₖ₊₁ = P(xₖ ± αₖ⋅dₖ)   with   αₖ ≈ argmin f(P(xₖ ± α⋅dₖ))   s.t.   α ≥ 0
+```
+
+with `d ∈ ℝⁿ` a well chosen search direction and where, depending on the
+numerical implementation, `±` is either `+` or `-` depending on whether the
+variables vary as:
+
+``` julia
+x = P(xₖ + α⋅dₖ)
+```
+
+or:
+
+``` julia
+x = P(xₖ - α⋅dₖ)
+```
+
+along the path `α ≥ 0`. The `NumOptBase` package provides some methods to help
+implementing such line-search methods.
+
+For any feasible `x ∈ Ω` and search direction `d ∈ ℝⁿ`, the *projected
+direction* `dp ∈ ℝⁿ` is defined by:
+
+```
+∀ α ∈ [0,ε], P(x ± α⋅d) = x ± α⋅dp
+```
+
+for some `ε > 0` and where `P` is the projection onto the feasible set `Ω`
+previously defined. In other words, `dp` is the effective search direction in
+`Ω` for any sufficiently small step size `α`.
+
+The projected direction is computed by:
+
+``` julia
+project_direction!(dp, x, ±, d, Ω)
+```
+
+which overwrites the destination `dp` and where `±` is either `+` or `-`.
+
+A closely related function is:
+
+``` julia
+unblocked_variables!(b, x, ±, d, Ω)
+```
+
+which overwrites the destination `b` with ones where variables in `x ∈ Ω` are
+not blocked by the constraints implemented by `Ω` along direction `±d` and
+zeros elsewhere. The projected direction `dp` and `b` are related by
+`dp = b.*d`.
+
+When line-searching, two specific values of the step length `α ≥ 0` are of
+interest:
+
+- `αₘᵢₙ ≥ 0` is the greatest nonnegative step length such that:
+
+  ```
+  α ≤ αₘᵢₙ  ⟹  P(x ± α⋅d) = x ± α⋅d
+  ```
+
+- `αₘₐₓ ≥ 0` is the least nonnegative step length such that:
+
+  ```
+  α ≥ αₘₐₓ  ⟹  P(x ± α⋅d) = P(x ± αₘₐₓ⋅d)
+  ```
+
+In other words, no bounds are overcome if `0 ≤ α ≤ αₘᵢₙ` and the projected
+variables are all the same for any `α` such that `α ≥ αₘₐₓ`. The values of
+`αₘᵢₙ` and/or `αₘₐₓ` can be computed by one of:
+
+``` julia
+αₘᵢₙ = linesearch_min_step(x, ±, d, Ω)
+αₘₐₓ = linesearch_max_step(x, ±, d, Ω)
+αₘᵢₙ, αₘₐₓ = linesearch_limits(x, ±, d, Ω)
+```
+
+Note that, for efficiency, `project_direction!`, `unblocked_variables!`,
+`linesearch_min_step`, `linesearch_max_step`, and `linesearch_limits` assume
+without checking that the input variables `x` are feasible, that is that `x ∈
+Ω` holds.
+
+
+
 ## Extension to other array types
 
 To extend the `NumOptBase` to other array types, some understanding of the

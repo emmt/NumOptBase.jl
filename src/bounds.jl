@@ -42,9 +42,9 @@ is_bounded(Ω::BoundedSet) = (is_bounded_below(Ω.lower),
                              is_bounded_above(Ω.upper))
 
 """
-    NumOptBase.project_variables!([E,] dst, x, Ω) -> dst
+    project_variables!([E,] dst, x, Ω) -> dst
 
-overwrite destination `dst` with the *projected variables* such that:
+overwrites destination `dst` with the *projected variables* such that:
 
     dst = P(x) = argmin ‖y - x‖²   s.t.   y ∈ Ω
 
@@ -87,12 +87,15 @@ end
 """
     project_direction!([E,] dst, x, ±, d, Ω) -> dst
 
-overwrite destination `dst` with the *projected* direction such that:
+overwrites destination `dst` with the *projected direction* such that, provided
+`x ∈ Ω`, then:
 
-    P(x ± α⋅d) = x ± α⋅dst
+    ∀ α ∈ [0,ε], P(x ± α⋅d) = x ± α⋅dst
 
-where `P` is the projection onto the feasible set `Ω`, `x` are the variables,
-and `d` is the search direction.
+for some `ε > 0` and where `P` is the projection onto the feasible set
+`Ω ⊆ ℝⁿ`, `x ∈ Ω` are the variables, and `d ∈ ℝⁿ` is a search direction.
+
+For efficiency, it is not checked that `x ∈ Ω` holds.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x, d, Ω)` is assumed.
@@ -128,11 +131,14 @@ function project_direction!(::Type{E},
     return dst
 end
 
-"""
-    NumOptBase.unblocked_variables!([E,] dst, x, ±, d, Ω) -> dst
 
-overwrite destination `dst` with ones where variables in `x` are not blocked by
-the bounds implemented by `Ω` along direction `±d` and zeros elsewhere.
+"""
+    unblocked_variables!([E,] dst, x, ±, d, Ω) -> dst
+
+overwrites destination `dst` with ones where variables in `x` are not blocked
+by the bounds implemented by `Ω` along direction `±d` and zeros elsewhere.
+
+For efficiency, it is not checked that `x ∈ Ω` holds.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x, d, Ω)` is assumed.
@@ -143,7 +149,7 @@ function, the destination is set to zero everywhere the Karush-Kuhn-Tucker
 
     minₓ f(x) s.t. x ∈ Ω
 
-FIXME: check this claim!
+This can be used to check for (exact) convergence.
 
 """
 function unblocked_variables!(dst::AbstractArray{<:Real,N},
