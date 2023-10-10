@@ -152,42 +152,46 @@ end
         return nothing
     end
 
-    function unsafe_project_variables!(::Type{<:TurboLoopEngine},
-                                       dst::TurboArray{T,N},
-                                       x::TurboArray{T,N},
-                                       lower::TurboBound{T,N},
-                                       upper::TurboBound{T,N}) where {T,N}
-        @turbo for i in eachindex(dst, x, only_arrays(lower, upper)...)
-            dst[i] = project(x[i], get_bound(lower, i), get_bound(upper, i))
-        end
-        return nothing
-    end
+    if false # FIXME: @turbo does not work yet
 
-    function unsafe_project_direction!(::Type{<:TurboLoopEngine},
-                                       dst::TurboArray{T,N},
-                                       x::TurboArray{T,N},
-                                       pm::PlusOrMinus,
-                                       d::TurboArray{T,N},
-                                       lower::TurboBound{T,N},
-                                       upper::TurboBound{T,N}) where {T,N}
-        @turbo for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
-            dst[i] = project(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
+        function unsafe_project_variables!(::Type{<:TurboLoopEngine},
+                                           dst::TurboArray{T,N},
+                                           x::TurboArray{T,N},
+                                           lower::TurboBound{T,N},
+                                           upper::TurboBound{T,N}) where {T,N}
+            @turbo for i in eachindex(dst, x, only_arrays(lower, upper)...)
+                dst[i] = project(x[i], get_bound(lower, i), get_bound(upper, i))
+            end
+            return nothing
         end
-        return nothing
-    end
 
-    function unsafe_unblocked_variables!(::Type{<:TurboLoopEngine},
-                                         dst::TurboArray{B,N},
-                                         x::TurboArray{T,N},
-                                         pm::PlusOrMinus,
-                                         d::TurboArray{T,N},
-                                         lower::TurboBound{T,N},
-                                         upper::TurboBound{T,N}) where {B,T,N}
-        @turbo for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
-            dst[i] = is_unblocked(B, x[i], pm, d[i],
-                                  get_bound(lower, i), get_bound(upper, i))
+        function unsafe_project_direction!(::Type{<:TurboLoopEngine},
+                                           dst::TurboArray{T,N},
+                                           x::TurboArray{T,N},
+                                           pm::PlusOrMinus,
+                                           d::TurboArray{T,N},
+                                           lower::TurboBound{T,N},
+                                           upper::TurboBound{T,N}) where {T,N}
+            @turbo for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
+                dst[i] = project(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
+            end
+            return nothing
         end
-        return nothing
+
+        function unsafe_unblocked_variables!(::Type{<:TurboLoopEngine},
+                                             dst::TurboArray{B,N},
+                                             x::TurboArray{T,N},
+                                             pm::PlusOrMinus,
+                                             d::TurboArray{T,N},
+                                             lower::TurboBound{T,N},
+                                             upper::TurboBound{T,N}) where {B,T,N}
+            @turbo for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
+                dst[i] = is_unblocked(B, x[i], pm, d[i],
+                                      get_bound(lower, i), get_bound(upper, i))
+            end
+            return nothing
+        end
+
     end
 
 else
