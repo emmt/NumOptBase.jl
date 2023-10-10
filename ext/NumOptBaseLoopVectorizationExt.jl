@@ -62,7 +62,7 @@ end
 
     # Type of arguments suitable to represent a bound for `@turbo` optimized
     # loops, see `Bound{T,N}`.
-    const TurboBound{T,N} = Union{Nothing,T,StridedArray{T,N}}
+    const TurboBound{T,N} = Union{Nothing,T,TurboArray{T,N}}
 
     @inline function unsafe_inner(::Type{<:TurboLoopEngine},
                                   x::TurboArray{T,N},

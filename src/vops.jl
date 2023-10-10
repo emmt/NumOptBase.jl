@@ -305,7 +305,7 @@ arrays. Argument `E` specifies which *engine* to be use for the computations.
 # Loop-based implementations.
 for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                (:inbounds,  AbstractArray, InBoundsLoopEngine),
-                               (:simd,      StridedArray,  SimdLoopEngine))
+                               (:simd,      SimdArray,     SimdLoopEngine))
     @eval begin
         @inline function unsafe_inner(::Type{<:$engine},
                                       x::$array,
@@ -359,7 +359,7 @@ norm1(x::AbstractArray) = norm1(engine(x), x)
 # Loop-based implementations.
 for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                (:inbounds,  AbstractArray, InBoundsLoopEngine),
-                               (:simd,      StridedArray,  SimdLoopEngine))
+                               (:simd,      SimdArray,     SimdLoopEngine))
     @eval begin
         @inline function norm1(::Type{<:$engine}, x::$array)
             acc = norm1(zero(eltype(x)))
@@ -391,7 +391,7 @@ norm2(x::AbstractArray) = norm2(engine(x), x)
 # Loop-based implementations.
 for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                (:inbounds,  AbstractArray, InBoundsLoopEngine),
-                               (:simd,      StridedArray,  SimdLoopEngine))
+                               (:simd,      SimdArray,     SimdLoopEngine))
     @eval begin
         @inline function norm2(::Type{<:$engine}, x::$array)
             acc = abs2(zero(eltype(x)))
