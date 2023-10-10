@@ -5,8 +5,12 @@ if isdefined(Base, :get_extension)
     using NumOptBase
     using NumOptBase:
         CudaEngine,
+        PlusOrMinus,
         RealComplex,
         convert_multiplier,
+        get_bound,
+        is_unblocked,
+        project,
         αx, αxpy, αxmy, αxpβy
     import NumOptBase:
         engine,
@@ -16,15 +20,25 @@ if isdefined(Base, :get_extension)
         norminf,
         unsafe_copy!,
         unsafe_inner,
+        unsafe_linesearch_limits,
+        unsafe_linesearch_max_step,
+        unsafe_linesearch_min_step,
         unsafe_map!,
+        unsafe_project_direction!,
+        unsafe_project_variables!,
+        unsafe_unblocked_variables!,
         zerofill!
 else
     using ..CUDA
     using ..NumOptBase
     using ..NumOptBase:
         CudaEngine,
+        PlusOrMinus,
         RealComplex,
         convert_multiplier,
+        get_bound,
+        is_unblocked,
+        project,
         αx, αxpy, αxmy, αxpβy
     import ..NumOptBase:
         engine,
@@ -34,7 +48,13 @@ else
         norminf,
         unsafe_copy!,
         unsafe_inner,
+        unsafe_linesearch_limits,
+        unsafe_linesearch_max_step,
+        unsafe_linesearch_min_step,
         unsafe_map!,
+        unsafe_project_direction!,
+        unsafe_project_variables!,
+        unsafe_unblocked_variables!,
         zerofill!
 end
 
@@ -197,6 +217,114 @@ end
 
 function norminf(::Type{<:CudaEngine}, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
     return mapreduce(norminf, max, x; init=norminf(zero(R)))
+end
+
+# Type of arguments suitable to represent a bound for CUDA arrays, see
+# `Bound{T,N}`.
+const CuBound{T,N} = Union{Nothing,T,CuArray{T,N}}
+const CuDeviceBound{T,N} = Union{Nothing,T,CuDeviceArray{T,N}}
+
+function device_project_variables!(dst::CuDeviceArray{T,N},
+                                   x::CuDeviceArray{T,N},
+                                   lower::CuDeviceBound{T,N},
+                                   upper::CuDeviceBound{T,N}) where {T,N}
+    @inbounds for i in @gpu_range(dst)
+        dst[i] = project(x[i], get_bound(lower, i), get_bound(upper, i))
+    end
+    return nothing # GPU kernels return nothing
+end
+
+function unsafe_project_variables!(::Type{<:CudaEngine},
+                                   dst::CuArray{T,N},
+                                   x::CuArray{T,N},
+                                   lower::CuBound{T,N},
+                                   upper::CuBound{T,N}) where {T,N}
+    kernel = @cuda launch=false device_project_variables!(dst, x, lower, upper)
+    threads, blocks = gpu_config(kernel, dst)
+    kernel(dst, x, lower, upper; threads, blocks)
+    return nothing
+end
+
+function device_project_direction!(dst::CuDeviceArray{T,N},
+                                   x::CuDeviceArray{T,N},
+                                   pm::PlusOrMinus,
+                                   d::CuDeviceArray{T,N},
+                                   lower::CuDeviceBound{T,N},
+                                   upper::CuDeviceBound{T,N}) where {T,N}
+    @inbounds for i in @gpu_range(dst)
+        dst[i] = project(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
+    end
+    return nothing # GPU kernels return nothing
+end
+
+function unsafe_project_direction!(::Type{<:CudaEngine},
+                                   dst::CuArray{T,N},
+                                   x::CuArray{T,N},
+                                   pm::PlusOrMinus,
+                                   d::CuArray{T,N},
+                                   lower::CuBound{T,N},
+                                   upper::CuBound{T,N}) where {T,N}
+    kernel = @cuda launch=false device_project_direction!(dst, x, pm, d, lower, upper)
+    threads, blocks = gpu_config(kernel, dst)
+    kernel(dst, x, pm, d, lower, upper; threads, blocks)
+    return nothing
+end
+
+function device_unblocked_variables!(dst::CuDeviceArray{B,N},
+                                     x::CuDeviceArray{T,N},
+                                     pm::PlusOrMinus,
+                                     d::CuDeviceArray{T,N},
+                                     lower::CuDeviceBound{T,N},
+                                     upper::CuDeviceBound{T,N}) where {B,T,N}
+    @inbounds for i in @gpu_range(dst)
+        dst[i] = is_unblocked(B, x[i], pm, d[i],
+                              get_bound(lower, i), get_bound(upper, i))
+    end
+    return nothing # GPU kernels return nothing
+end
+
+function unsafe_unblocked_variables!(::Type{<:CudaEngine},
+                                     dst::CuArray{B,N},
+                                     x::CuArray{T,N},
+                                     pm::PlusOrMinus,
+                                     d::CuArray{T,N},
+                                     lower::CuBound{T,N},
+                                     upper::CuBound{T,N}) where {B,T,N}
+    kernel = @cuda launch=false device_unblocked_variables!(dst, x, pm, d, lower, upper)
+    threads, blocks = gpu_config(kernel, dst)
+    kernel(dst, x, pm, d, lower, upper; threads, blocks)
+    return nothing
+end
+
+# FIXME: The returned value is conservative.
+function unsafe_linesearch_min_step(::Type{<:CudaEngine},
+                                    x::CuArray{T,N},
+                                    pm::PlusOrMinus,
+                                    d::CuArray{T,N},
+                                    lower::CuBound{T,N},
+                                    upper::CuBound{T,N}) where {T,N}
+    return zero(T)
+end
+
+# FIXME: The returned value is conservative.
+function unsafe_linesearch_max_step(::Type{<:CudaEngine},
+                                    x::CuArray{T,N},
+                                    pm::PlusOrMinus,
+                                    d::CuArray{T,N},
+                                    lower::CuBound{T,N},
+                                    upper::CuBound{T,N}) where {T,N}
+    return typemax(T)
+end
+
+# FIXME: The returned values are conservative.
+function unsafe_linesearch_limits(::Type{<:CudaEngine},
+                                  x::CuArray{T,N},
+                                  pm::PlusOrMinus,
+                                  d::CuArray{T,N},
+                                  lower::CuBound{T,N},
+                                  upper::CuBound{T,N}) where {T,N}
+    return (unsafe_linesearch_min_step(CudaEngine, x, pm, d, lower, upper),
+            unsafe_linesearch_max_step(CudaEngine, x, pm, d, lower, upper))
 end
 
 end # module
