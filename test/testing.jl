@@ -87,6 +87,27 @@ function test_utilities()
             @test floating_point_type(zero(Complex{T})) === F
         end
         @test_throws Exception floating_point_type("hello")
+
+        only_arrays = NumOptBase.only_arrays
+        check_axes = NumOptBase.check_axes
+        w = collect(-1:4)
+        x = zeros(Float64, 2,3)
+        y = ones(Float32, size(x))
+        @test () === @inferred only_arrays()
+        @test () === @inferred only_arrays(π)
+        @test (x,) === @inferred only_arrays(x)
+        @test (x,) === @inferred only_arrays(sin, x, 1)
+        @test (x, y) === @inferred only_arrays(x, y)
+        @test (x, y) === @inferred only_arrays(x, 1, y, nothing)
+        @test (x, y) === @inferred only_arrays(sin, x, 1, y)
+        @test (w, x, y) === @inferred only_arrays(w, x, y)
+        @test (w, x, y) === @inferred only_arrays(w, x, 1, y)
+        @test (w, x, y) === @inferred only_arrays(0, w, x, 1, y)
+        @test nothing === @inferred check_axes()
+        @test nothing === @inferred check_axes(x)
+        @test nothing === @inferred check_axes(x, y)
+        @test_throws DimensionMismatch check_axes(w, x)
+        @test_throws DimensionMismatch check_axes(x, x')
     end
 end
 
@@ -237,12 +258,245 @@ function test_operators()
     end
 end
 
+"""
+    same_float(x, y) -> bool
+
+yields whether `x` and `y` have the same floating-point values. NaNs of any
+kind are considered as the same floating-point value. Plus zero and minus zero
+are considered as different floating-point values. Because of the former
+assumption, `x === y` is not sufficient to test whether `x` and `y` have the
+same floating-point values.
+
+"""
+same_float(x, y) = false
+same_float(x::T, y::T) where {T <: AbstractFloat} =
+    # Comparing results is tricky because not all NaNs are the same.
+    (isnan(x) & isnan(y)) | (x === y)
+function same_float(x::AbstractArray{T,N},
+                    y::AbstractArray{T,N}; verb::Bool = false) where {T,N}
+    @assert axes(x) == axes(y)
+    result = true
+    for i in CartesianIndices(x)
+        flag = same_float(x[i], y[i])
+        result &= flag
+        if verb && !flag
+            printstyled(stderr, "ERROR: $(x[i]) ≠ $(y[i]) at indices $(Tuple(i))\n";
+                        color = :red)
+        end
+    end
+    return result
+end
+
+lower_bound(Ω::BoundedSet{T,N,L,U}, i) where {T,N,L<:Nothing,U} = typemin(T)
+lower_bound(Ω::BoundedSet{T,N,L,U}, i) where {T,N,L<:Number,U} = Ω.lower
+lower_bound(Ω::BoundedSet{T,N,L,U}, i) where {T,N,L<:AbstractArray,U} = Ω.lower[i]
+
+upper_bound(Ω::BoundedSet{T,N,L,U}, i) where {T,N,L,U<:Nothing} = typemax(T)
+upper_bound(Ω::BoundedSet{T,N,L,U}, i) where {T,N,L,U<:Number} = Ω.upper
+upper_bound(Ω::BoundedSet{T,N,L,U}, i) where {T,N,L,U<:AbstractArray} = Ω.upper[i]
+
+# Reference version of project_variables!. Not meant to be smart, just to
+# provide correct result.
+function ref_project_variables!(dst::AbstractArray{T,N},
+                                x::AbstractArray{T,N},
+                                Ω::BoundedSet{T,N}) where {T,N}
+   for i in eachindex(dst, x, NumOptBase.only_arrays(Ω.lower, Ω.upper)...)
+        dst[i] = min(max(x[i], lower_bound(Ω, i)), upper_bound(Ω, i))
+    end
+    return dst
+end
+
+# Reference version of project_direction!. Not meant to be smart, just to
+# provide correct result.
+function ref_project_direction!(dst::AbstractArray{T,N},
+                                x::AbstractArray{T,N},
+                                pm::NumOptBase.PlusOrMinus, d::AbstractArray{T,N},
+                                Ω::BoundedSet{T,N}) where {T,N}
+    for i in eachindex(x, d, NumOptBase.only_arrays(Ω.lower, Ω.upper)...)
+        s = pm(d[i])
+        unblocked =
+            s < zero(s) ? lower_bound(Ω, i) < x[i] :
+            s > zero(s) ? upper_bound(Ω, i) > x[i] : true
+        dst[i] = unblocked ? d[i] : zero(T)
+    end
+    return dst
+end
+
+# Reference version of unblocked_variables!. Not meant to be smart, just to
+# provide correct result.
+function ref_unblocked_variables!(dst::AbstractArray{B,N},
+                                  x::AbstractArray{T,N},
+                                  pm::NumOptBase.PlusOrMinus, d::AbstractArray{T,N},
+                                  Ω::BoundedSet{T,N}) where {B,T,N}
+    for i in eachindex(x, d, NumOptBase.only_arrays(Ω.lower, Ω.upper)...)
+        s = pm(d[i])
+        unblocked =
+            s < zero(s) ? lower_bound(Ω, i) < x[i] :
+            s > zero(s) ? upper_bound(Ω, i) > x[i] : true
+        dst[i] = unblocked ? one(B) : zero(B)
+    end
+    return dst
+end
+
+# Reference version of linesearch_limits. Not meant to be smart, just to
+# provide correct result.
+function ref_linesearch_limits(x::AbstractArray{T,N},
+                               pm::NumOptBase.PlusOrMinus, d::AbstractArray{T,N},
+                               Ω::BoundedSet{T,N}) where {T,N}
+    amin = ref_linesearch_min_step(x, pm, d, Ω)
+    amax = ref_linesearch_max_step(x, pm, d, Ω)
+    return amin, amax
+end
+
+# Reference version of linesearch_min_step. Not meant to be smart, just to
+# provide correct result.
+function ref_linesearch_min_step(x::AbstractArray{T,N},
+                                 pm::NumOptBase.PlusOrMinus, d::AbstractArray{T,N},
+                                 Ω::BoundedSet{T,N}) where {T,N}
+    cnt = 0
+    amin = typemax(T)
+    for i in eachindex(x, d, NumOptBase.only_arrays(Ω.lower, Ω.upper)...)
+        s = pm(d[i])
+        if s < zero(s)
+            l = lower_bound(Ω, i)
+            if l > typemin(l)
+                amin = min(amin, (l - x[i])/s)
+            end
+        elseif s > zero(s)
+            u = upper_bound(Ω, i)
+            if u < typemax(u)
+                amin = min(amin, (u - x[i])/s)
+            end
+        end
+    end
+    return amin::T
+end
+
+# Reference version of linesearch_max_step. Not meant to be smart, just to
+# provide correct result.
+function ref_linesearch_max_step(x::AbstractArray{T,N},
+                                 pm::NumOptBase.PlusOrMinus, d::AbstractArray{T,N},
+                                 Ω::BoundedSet{T,N}) where {T,N}
+    amax = T(NaN)
+    for i in eachindex(x, d, NumOptBase.only_arrays(Ω.lower, Ω.upper)...)
+        s = pm(d[i])
+        if s < zero(s)
+            l = lower_bound(Ω, i)
+            if l > typemin(l)
+                a = (l - x[i])/s
+                if isnan(amax) || zero(a) ≤ a < amax
+                    amax = a
+                end
+            end
+        elseif s > zero(s)
+            u = upper_bound(Ω, i)
+            if u < typemax(u)
+                a = (u - x[i])/s
+                if isnan(amax) || zero(a) ≤ a < amax
+                    amax = a
+                end
+            end
+        end
+    end
+    return (isnan(amax) ? T(Inf) : amax)::T
+end
+
+function test_bounds()
+    @testset "Bound constraints" begin
+        @testset "Comparisons ($T)" for T in (Float32, Float64)
+            @test  same_float(+zero(T), zero(T))
+            @test !same_float(-zero(T), zero(T))
+            @test  same_float(T(NaN), T(NaN))
+            @test  same_float((+zero(T))/zero(T), T(NaN))
+            @test  same_float((-zero(T))/zero(T), T(NaN))
+            @test  same_float(T(+Inf), typemax(T))
+            @test  same_float(T(-Inf), typemin(T))
+            @test  same_float(one(T)/(+zero(T)), T(+Inf))
+            @test  same_float(one(T)/(-zero(T)), T(-Inf))
+            @test  same_float(zero(T), T(0))
+            @test  same_float(one(T), T(1))
+
+            # The 7 different possible floating-point values (-1 and +1
+            # representing any finite and respectively negative or positive
+            # value).
+            v = T[-Inf, -1.0, -0.0, +0.0, +1.0, +Inf, NaN]
+            # Ratio of floating-point values.
+            r = v' ./ v
+            # Expected result for the ratio of floating-point values.
+            s = T[#=(1,1:7)=#  NaN   0.0   0.0  -0.0  -0.0   NaN   NaN;
+                  #=(2,1:7)=#  Inf   1.0   0.0  -0.0  -1.0  -Inf   NaN;
+                  #=(3,1:7)=#  Inf   Inf   NaN   NaN  -Inf  -Inf   NaN;
+                  #=(4,1:7)=# -Inf  -Inf   NaN   NaN   Inf   Inf   NaN;
+                  #=(5,1:7)=# -Inf  -1.0  -0.0   0.0   1.0   Inf   NaN;
+                  #=(6,1:7)=#  NaN  -0.0  -0.0   0.0   0.0   NaN   NaN;
+                  #=(7,1:7)=#  NaN   NaN   NaN   NaN   NaN   NaN   NaN]
+            @test eltype(r) === eltype(s) === T
+            @test same_float(r, s; verb=true)
+            if isdefined(Main, :CUDA)
+                vp = Main.CUDA.CuArray(v)
+                r = Array(vp' ./ vp)
+                @test eltype(r) === eltype(s) === T
+                @test same_float(r, s; verb=true)
+            end
+        end
+
+        dims = (3, 4)
+        vals = -5:6
+        floats = (Float32, Float64)
+        bounds = Dict(
+            # Unconstrained cases:
+            "(nothing,nothing)"    => (nothing, nothing),
+            "(-Inf,nothing)"       => (-Inf, nothing),
+            "(nothing,+Inf)"       => (nothing, +Inf),
+            "(-Inf,nothing)"       => (-Inf, nothing),
+            "(-Inf,+Inf)"          => (-Inf, +Inf),
+            "([-Inf,...],+Inf)"    => (fill(-Inf,dims), +Inf),
+            "(nothing,[+Inf,...])" => (-Inf, fill(+Inf,dims)),
+            # Bounded below:
+            "(0,nothing)"          => (0, nothing),
+            "(0,+Inf)"             => (0, +Inf),
+            "([0,...],+Inf)"       => (zeros(dims), +Inf),
+            "([0,...],[+Inf,...])" => (zeros(dims), fill(+Inf,dims)),
+            # Bounded above:
+            "(nothing,0)"          => (nothing, 0),
+            "(-Inf,0)"             => (-Inf, 0),
+            #=
+            =#
+        )
+
+        @testset "Project variables ($T, $(pm)d, Ω = $B)" for T in floats,
+            pm in (+, -), B in keys(bounds)
+
+            N = length(dims)
+            Ω = BoundedSet{T,N}(bounds[B]...)
+            x0 = Array{T}(reshape(vals, dims))
+            x = ref_project_variables!(similar(x0), x0, Ω) # make sure x is feasible
+            y = similar(x)
+            z = similar(x)
+            d = ones(T, size(x))
+            if pm === +
+                @test y === @inferred project_variables!(y, x0, Ω)
+                @test y == x
+            end
+            @test y === @inferred project_direction!(y, x, pm, d, Ω)
+            @test y == ref_project_direction!(z, x, pm, d, Ω)
+            @test y === @inferred unblocked_variables!(y, x, pm, d, Ω)
+            @test y == ref_unblocked_variables!(z, x, pm, d, Ω)
+            amin, amax = linesearch_limits(x, pm, d, Ω)
+            @test  amin        == @inferred linesearch_min_step(x, pm, d, Ω)
+            @test        amax  == @inferred linesearch_max_step(x, pm, d, Ω)
+            @test (amin, amax) == @inferred linesearch_limits(x, pm, d, Ω)
+        end
+    end
+end
+
 # Run all tests with default settings.
 function test_all()
     @testset "NumOptBase package" begin
         TestingNumOptBase.test_utilities()
         TestingNumOptBase.test_operations()
         TestingNumOptBase.test_operators()
+        TestingNumOptBase.test_bounds()
     end
 end
 

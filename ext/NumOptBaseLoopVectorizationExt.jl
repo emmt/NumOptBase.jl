@@ -4,6 +4,7 @@ if isdefined(Base, :get_extension)
     using LoopVectorization
     using NumOptBase
     using NumOptBase:
+        PlusOrMinus,
         SimdLoopEngine,
         TurboArray,
         TurboLoopEngine
@@ -12,11 +13,15 @@ if isdefined(Base, :get_extension)
         norm2,
         norminf,
         unsafe_inner,
-        unsafe_map!
+        unsafe_map!,
+        unsafe_project_direction!,
+        unsafe_project_variables!,
+        unsafe_unblocked_variables!
 else
     using ..LoopVectorization
     using ..NumOptBase
     using ..NumOptBase:
+        PlusOrMinus,
         SimdLoopEngine,
         TurboArray,
         TurboLoopEngine
@@ -25,7 +30,10 @@ else
         norm2,
         norminf,
         unsafe_inner,
-        unsafe_map!
+        unsafe_map!,
+        unsafe_project_direction!,
+        unsafe_project_variables!,
+        unsafe_unblocked_variables!
 end
 
 # The @turbo macro was introduced in LoopVectorization 0.12.22 to replace @avx.
@@ -51,6 +59,10 @@ end
     const can_avx = isdefined(LoopVectorization, :ArrayInterface) &&
         isdefined(LoopVectorization.ArrayInterface, :can_avx) ?
         LoopVectorization.ArrayInterface.can_avx : f -> false
+
+    # Type of arguments suitable to represent a bound for `@turbo` optimized
+    # loops, see `Bound{T,N}`.
+    const TurboBound{T,N} = Union{Nothing,T,StridedArray{T,N}}
 
     @inline function unsafe_inner(::Type{<:TurboLoopEngine},
                                   x::TurboArray{T,N},
@@ -128,6 +140,44 @@ end
         else
             # Fallback to SIMD loop vectorization.
             unsafe_map!(SimdLoopEngine, f, dst, x, y)
+        end
+        return nothing
+    end
+
+    function unsafe_project_variables!(::Type{<:TurboLoopEngine},
+                                       dst::TurboArray{T,N},
+                                       x::TurboArray{T,N},
+                                       lower::TurboBound{T,N},
+                                       upper::TurboBound{T,N}) where {T,N}
+        @turbo for i in eachindex(dst, x, only_arrays(lower, upper)...)
+            dst[i] = project(x[i], get_bound(lower, i), get_bound(upper, i))
+        end
+        return nothing
+    end
+
+    function unsafe_project_direction!(::Type{<:TurboLoopEngine},
+                                       dst::TurboArray{T,N},
+                                       x::TurboArray{T,N},
+                                       pm::PlusOrMinus,
+                                       d::TurboArray{T,N},
+                                       lower::TurboBound{T,N},
+                                       upper::TurboBound{T,N}) where {T,N}
+        @turbo for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
+            dst[i] = project(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
+        end
+        return nothing
+    end
+
+    function unsafe_unblocked_variables!(::Type{<:TurboLoopEngine},
+                                         dst::TurboArray{B,N},
+                                         x::TurboArray{T,N},
+                                         pm::PlusOrMinus,
+                                         d::TurboArray{T,N},
+                                         lower::TurboBound{T,N},
+                                         upper::TurboBound{T,N}) where {B,T,N}
+        @turbo for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
+            dst[i] = is_unblocked(B, x[i], pm, d[i],
+                                  get_bound(lower, i), get_bound(upper, i))
         end
         return nothing
     end

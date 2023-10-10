@@ -40,6 +40,36 @@ _vectorize(optim::Symbol, loop::Expr) =
     error("unknown loop optimizer `:$optim`")
 
 """
+    NumOptBase.check_axes(args...)
+
+throws a `DimensionMismatch` exception if arguments `args...` are not arrays
+with the same axes.
+
+"""
+check_axes() = nothing
+check_axes(A::AbstractArray) = nothing
+check_axes(A::AbstractArray...) = throw_incompatible_axes()
+@inline check_axes(A::AbstractArray{<:Any,N}, B::AbstractArray{<:Any,N}...) where {N} =
+    check_axes(Bool, axes(A), B...) ? nothing : throw_incompatible_axes()
+@inline check_axes(::Type{Bool}, I, A::AbstractArray) = axes(A) == I
+@inline check_axes(::Type{Bool}, I, A::AbstractArray, B::AbstractArray...) =
+    check_axes(Bool, I, A) && check_axes(Bool, I, B...)
+
+@noinline throw_incompatible_axes() =
+    throw(DimensionMismatch("arrays have different indices"))
+
+"""
+    NumOptBase.only_arrays(args...) -> tup
+
+yields a tuple of the arrays in `args...`.
+
+"""
+@inline only_arrays(A::Any) = ()
+@inline only_arrays(A::AbstractArray...) = A # this includes empty tuple
+@inline only_arrays(A::Any, B...) = only_arrays(B...)
+@inline only_arrays(A::AbstractArray, B...) = (A, only_arrays(B...)...)
+
+"""
     NumOptBase.flatten(x)
 
 converts array `x` in to a vector.

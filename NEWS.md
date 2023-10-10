@@ -1,5 +1,17 @@
 # User visible changes in `NumOptBase`
 
+## Version 0.2.0
+
+This branch adds bound constraints.
+
+- New types for bound constraints: `Bound{T,N}` and `BoundedSet{T,N,L,U}` with
+  `T` and `N` the element type and number of dimensions of the variables, `L`
+  and `U` the types of the lower and upper bounds.
+
+- New methods for bound constraints: `project_variables!`,
+  `project_direction!`, `unblocked_variables!`, `linesearch_limits`,
+  `linesearch_min_step`, and `linesearch_max_step`.
+
 ## Version 0.1.15
 
 - Fix imports in turbo code.

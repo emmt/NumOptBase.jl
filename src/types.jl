@@ -146,3 +146,57 @@ is the abstract type identifying implementation for CUDA arrays.
 
 """
 abstract type CudaEngine <: Engine end
+
+"""
+    NumOptBase.Bound{T,N}
+
+is the type of argument suitable to represent a bound for `N`-dimensional
+variables of element type `T` in `NumOptBase` package.
+
+Bounds may be specified as:
+- `nothing` if the bound is unlimited;
+- a scalar if the bound is the same for all variables;
+- an array of same size as the variables.
+
+Owing to the complexity of managing all possibilities in the methods
+implementing bound constraints, bound specified as arrays *conformable* with
+the variables are not directly supported. The caller may extend the array of
+bound values to the same size as the variables. This may be done in a higher
+level interface.
+
+For simplicity and type-stability, only `nothing` is considered as unlimited
+bounds even though all lower (resp. upper) bound values may be `-∞` (resp.
+`+∞`).
+
+"""
+const Bound{T,N} = Union{Nothing,T,AbstractArray{T,N}}
+
+"""
+    NumOptBase.BoundedSet{T,N}(lower, upper) -> Ω
+
+yields an object `Ω` representing the set of variables bounded below by `lower`
+and bounded above by `upper`. Type parameter `T` and `N` are the floating-point
+type for computations and the number of dimensions of the variables.
+
+See [`NumOptBase.Bound`](@ref) for possible bound arguments.
+
+"""
+struct BoundedSet{T,N,L<:Bound{T,N},U<:Bound{T,N}}
+    lower::L
+    upper::U
+end
+function BoundedSet{T,N}(lower::L, upper::U) where {T,N,L<:Bound{T,N},U<:Bound{T,N}}
+    # FIXME: Check whether set is feasible.
+    return BoundedSet{T,N,L,U}(lower, upper)
+end
+function BoundedSet{T,N}(lower, upper) where {T,N}
+    to_bound(::Type{T}, ::Val{N}, B::Bound{T,N}) where {T,N} = B
+    to_bound(::Type{T}, ::Val{N}, B::Number) where {T,N} = as(T, B)
+    to_bound(::Type{T}, ::Val{N}, B::AbstractArray{<:Any,N}) where {T,N} =
+        copyto!(similar(B, T), B)
+    @noinline to_bound(::Type{T}, ::Val{N}, B) where {T,N} =
+        throw(ArgumentError(
+            "cannot convert argument of type $(typeof(B)) into a bound of type Bound{$T,$N}"))
+    return BoundedSet{T,N}(to_bound(T, Val(N), lower),
+                           to_bound(T, Val(N), upper))
+end

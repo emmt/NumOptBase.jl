@@ -21,8 +21,20 @@ export
     update!,
     zerofill!
 
+export
+    # Bound constraints:
+    Bound,
+    BoundedSet,
+    linesearch_limits,
+    linesearch_max_step,
+    linesearch_min_step,
+    project_direction!,
+    project_variables!,
+    unblocked_variables!
+
 using TypeUtils
 using ArrayTools: @assert_same_axes
+using StructuredArrays
 using LinearAlgebra
 
 if !isdefined(Base, :get_extension)
@@ -32,6 +44,7 @@ end
 include("types.jl")
 include("utils.jl")
 include("vops.jl")
+include("bounds.jl")
 
 function __init__()
     @static if !isdefined(Base, :get_extension)
