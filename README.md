@@ -108,7 +108,7 @@ and `y` must be arrays of the same size.
 arrays of the same size.
 
 
-### Applying mappings
+### Apply mappings
 
 The method:
 
@@ -159,10 +159,10 @@ way for the type of array storing the variables:
 variables. With such constraints, the feasible set is defined by:
 
 ```
-Ω = {x ∈ ℝⁿ | ℓ ≤ x ≤ u }
+Ω = { x ∈ ℝⁿ | ℓ ≤ x ≤ u }
 ```
 
-with `ℓ` and `u` the lower and upper bounds and where the comparisons (`≤`) is
+with `ℓ` and `u` the lower and upper bounds and where the comparisons (`≤`) are
 taken element-wise. To represent the feasible set for bound constrained
 `N`-dimensional variables of element type `T` in Julia is done by:
 
@@ -188,23 +188,23 @@ be alleviated in a high level interface:
 
 ### Projection on the feasible set
 
-For any `x ∈ ℝⁿ`, the *projected variables* `xp ∈ Ω` are defined by:
+For any `x ∈ ℝⁿ`, the *projected variables* `xₚ ∈ Ω` are defined by:
 
 ```
-xp = P(x) = argmin ‖y - x‖²   s.t.   y ∈ Ω
+xₚ = P(x) = argmin ‖y - x‖²   s.t.   y ∈ Ω
 ```
 
-where `P` is the projection onto the feasible set `Ω`. In other words, `xp` is
+where `P` is the projection onto the feasible set `Ω`. In other words, `xₚ` is
 the element of `Ω` that is the closest (in the least Euclidean distance sense)
 to `x`.
 
 The projected variables are computed by:
 
 ``` julia
-project_variables!(xp, x, Ω)
+project_variables!(xₚ, x, Ω)
 ```
 
-which overwrites the destination `xp` with the projection of `x ∈ ℝⁿ` onto the
+which overwrites the destination `xₚ` with the projection of `x ∈ ℝⁿ` onto the
 feasible set `Ω ⊆ ℝⁿ`.
 
 
@@ -235,23 +235,23 @@ along the path `α ≥ 0`. The `NumOptBase` package provides some methods to hel
 implementing such line-search methods.
 
 For any feasible `x ∈ Ω` and search direction `d ∈ ℝⁿ`, the *projected
-direction* `dp ∈ ℝⁿ` is defined by:
+direction* `dₚ ∈ ℝⁿ` is defined by:
 
 ```
-∀ α ∈ [0,ε], P(x ± α⋅d) = x ± α⋅dp
+∀ α ∈ [0,ε], P(x ± α⋅d) = x ± α⋅dₚ
 ```
 
 for some `ε > 0` and where `P` is the projection onto the feasible set `Ω`
-previously defined. In other words, `dp` is the effective search direction in
+previously defined. In other words, `dₚ` is the effective search direction in
 `Ω` for any sufficiently small step size `α`.
 
 The projected direction is computed by:
 
 ``` julia
-project_direction!(dp, x, ±, d, Ω)
+project_direction!(dₚ, x, ±, d, Ω)
 ```
 
-which overwrites the destination `dp` and where `±` is either `+` or `-`.
+which overwrites the destination `dₚ` and where `±` is either `+` or `-`.
 
 A closely related function is:
 
@@ -261,8 +261,8 @@ unblocked_variables!(a, x, ±, d, Ω)
 
 which overwrites the destination `a` with ones where variables in `x ∈ Ω` are
 not blocked by the constraints implemented by `Ω` along the direction `±d` and
-zeros elsewhere. The projected direction `dp` and `a` are related by
-`dp = a .* d`.
+zeros elsewhere. The projected direction `dₚ` and `a` are related by
+`dₚ = a .* d`.
 
 When line-searching, two specific values of the step length `α ≥ 0` are of
 interest:
