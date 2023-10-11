@@ -234,6 +234,17 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
             end
             nothing
         end
+        @inline function unsafe_map!(::Type{<:$engine},
+                                     f::Function,
+                                     dst::$array,
+                                     x::$array,
+                                     y::$array,
+                                     z::$array)
+            @vectorize $optim for i in eachindex(dst, x, y, z)
+                dst[i] = f(x[i], y[i], z[i])
+            end
+            nothing
+        end
     end
 end
 
@@ -251,5 +262,14 @@ end
                              x::AbstractArray,
                              y::AbstractArray)
     map!(f, dst, x, y)
+    nothing
+end
+@inline function unsafe_map!(::Type{<:Engine},
+                             f::Function,
+                             dst::AbstractArray,
+                             x::AbstractArray,
+                             y::AbstractArray,
+                             z::AbstractArray)
+    map!(f, dst, x, y, z)
     nothing
 end

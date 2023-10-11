@@ -1,5 +1,11 @@
 # User visible changes in `NumOptBase`
 
+## Version 0.2.1
+
+Extend `update!` so that `update!(x, β, y, z)` returns `x` overwritten with
+`x + β⋅y⋅z` performed element-wise. Arguments `x`, `y`, and `z` are arrays of
+the same size while `β` is a scalar.
+
 ## Version 0.2.0
 
 This branch adds bound constraints.

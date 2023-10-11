@@ -91,20 +91,25 @@ must all be real-valued arrays.
 
 ### Scaling, updating, and combining variables
 
-`scale!(dst, α, x)` overwrites `dst` with `α⋅x` and returns `dst`. `α` is a
-scalar while `dst` and `x` are arrays of the same size. If `iszero(α)` holds,
-`dst` is zero-filled whatever the values in `x`.
+`scale!(dst, α, x)` returns `dst` overwritten with `α⋅x` performed
+element-wise. Arguments `dst` and `x` are arrays of the same size while `α` is
+a scalar. If `iszero(α)` holds, `dst` is zero-filled whatever the values in
+`x`.
 
-`update!(x, β, y)` overwrites `x` with `x + β⋅y` and returns `x`. `β` is a
-scalar while `x` and `y` are arrays of the same size. This is a shortcut for
-`combine!(x,1,x,β,y)`.
+`update!(x, β, y)` returns `x` overwritten with `x + β⋅y` performed
+element-wise. Arguments `x` and `y` are arrays of the same size while `β` is a
+scalar. This is a shortcut for `combine!(x, 1, x, β, y)`.
 
-`multiply!(dst, x, y)` overwrites `dst` with the element-wise multiplication
-(also known as *Hadamard product*) of `x` by `y` and returns `dst`. `dst`, `x`,
-and `y` must be arrays of the same size.
+`update!(x, β, y, z)` returns `x` overwritten with `x + β⋅y⋅z` performed
+element-wise. Arguments `x`, `y`, and `z` are arrays of the same size while `β`
+is a scalar.
+
+`multiply!(dst, x, y)` returns `dst` overwritten with the element-wise multiplication
+(also known as *Hadamard product*) of `x` by `y`. Arguments `dst`, `x`,
+and `y` are arrays of the same size.
 
 `combine!(dst, α, x, β, y)` overwrites `dst` with `α⋅x + β⋅y` and returns
-`dst`. `α` and `β` must be real scalars while `dst`, `x`, and `y` must be
+`dst`. Arguments `α` and `β` are real scalars while `dst`, `x`, and `y` are
 arrays of the same size.
 
 
@@ -309,6 +314,7 @@ called by the end-users are summarized in the following table.
 | `NumOptBase.copy!(dst,x)` | Copy `x` into `dst`     | See `copyto!` and `copy!` in Julia |
 | `scale!(dst,α,x)`         | `dst = α*x`             |                                    |
 | `update!(dst,α,x)`        | `dst += α*x`            |                                    |
+| `update!(dst,α,x,y)`      | `dst += α*x.*y`         |                                    |
 | `combine!(dst,α,x,β,y)`   | `dst = α*x + β*y`       |                                    |
 | `inner(x,y)`              | Inner product           |                                    |
 | `inner(w,x,y)`            | Triple inner product    |                                    |

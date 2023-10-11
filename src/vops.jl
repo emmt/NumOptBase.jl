@@ -171,9 +171,68 @@ function update!(::Type{E},
     elseif α == -one(α)
         unsafe_map!(E, -, dst, dst, x)
     elseif !iszero(α)
-        unsafe_map!(E, αxpy(α, x), dst, x, dst)
+        unsafe_update!(E, dst, convert_multiplier(α, x), x)
+        # FIXME: unsafe_map!(E, αxpy(α, x), dst, x, dst)
     end
     return dst
+end
+
+"""
+    NumOptBase.update!([E,] dst, α, x, y) -> dst
+
+overwrites destination `dst` with `dst + α⋅x⋅y` performed element-wise and
+returns `dst`.
+
+Optional argument `E` specifies which *engine* to use for the computations. If
+unspecified, `E = NumOptBase.engine(dst, x)` is assumed.
+
+"""
+function update!(dst::AbstractArray{T,N},
+                 α::Real, x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
+    return update!(engine(dst, x), dst, α, x, y)
+end
+
+xpyz(x, y, z) = muladd(y, z, x) # x + y*z
+xmyz(x, y, z) = x - y*z
+
+function update!(::Type{E},
+                 dst::AbstractArray{T,N},
+                 α::Real, x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N,E<:Engine}
+    @assert_same_axes dst x y
+    if isone(α)
+        unsafe_map!(E, xpyz, dst, dst, x, y)
+    elseif α == -one(α)
+        unsafe_map!(E, xmyz, dst, dst, x, y)
+    elseif !iszero(α)
+        unsafe_update!(E, dst, convert_multiplier(α, x), x, y)
+    end
+    return dst
+end
+
+for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
+                               (:inbounds,  AbstractArray, InBoundsLoopEngine),
+                               (:simd,      SimdArray,     SimdLoopEngine))
+    @eval begin
+        @inline function unsafe_update!(::Type{<:$engine},
+                                        dst::$array,
+                                        α::Real,
+                                        x::$array)
+            @vectorize $optim for i in eachindex(dst, x)
+                dst[i] += α*x[i]
+            end
+            return nothing
+        end
+        @inline function unsafe_update!(::Type{<:$engine},
+                                        dst::$array,
+                                        α::Real,
+                                        x::$array,
+                                        y::$array)
+            @vectorize $optim for i in eachindex(dst, x, y)
+                dst[i] += α*x[i]*y[i]
+            end
+            return nothing
+        end
+    end
 end
 
 """

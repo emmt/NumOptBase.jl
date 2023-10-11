@@ -27,6 +27,7 @@ if isdefined(Base, :get_extension)
         unsafe_project_direction!,
         unsafe_project_variables!,
         unsafe_unblocked_variables!,
+        unsafe_update!,
         zerofill!
 else
     using ..CUDA
@@ -55,6 +56,7 @@ else
         unsafe_project_direction!,
         unsafe_project_variables!,
         unsafe_unblocked_variables!,
+        unsafe_update!,
         zerofill!
 end
 
@@ -85,7 +87,7 @@ macro gpu_range(A)
     A isa Symbol || error("expecting a symbolic name")
     esc(:(
         #= first =# ((blockIdx().x - 1)*blockDim().x + threadIdx().x) :
-        #= step  =# (gridDim().x*blockDim().x) :
+        #= step  =# (blockDim().x*gridDim().x) :
         #= last  =# length($A)
     ))
 end
@@ -94,7 +96,7 @@ end
     gpu_config(fun, len) -> threads, blocks
 
 yields suitable numbers of threads and blocks for applying GPU kernel/function
-`fun` on arrays with `len` elements. If second argment is an array, its length
+`fun` on arrays with `len` elements. If second argument is an array, its length
 is used.
 
 """
@@ -128,19 +130,6 @@ function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, x::CuArray
     return nothing
 end
 
-function unsafe_map!(::Type{<:CudaEngine}, f::αx, dst::CuArray, x::CuArray)
-    function func!(dst, α, x)
-        for i in @gpu_range(dst)
-            @inbounds dst[i] = α*x[i]
-        end
-        return nothing # GPU kernels return nothing
-    end
-    kernel = @cuda launch=false func!(dst, f.α, x)
-    threads, blocks = gpu_config(kernel, dst)
-    kernel(dst, f.α, x; threads, blocks)
-    return nothing
-end
-
 function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, x::CuArray, y::CuArray)
     function func!(f, dst, x, y)
         for i in @gpu_range(dst)
@@ -151,6 +140,32 @@ function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, x::CuArray
     kernel = @cuda launch=false func!(f, dst, x, y)
     threads, blocks = gpu_config(kernel, dst)
     kernel(f, dst, x, y; threads, blocks)
+    return nothing
+end
+
+function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, x::CuArray, y::CuArray, z::CuArray)
+    function func!(f, dst, x, y, z)
+        for i in @gpu_range(dst)
+            @inbounds dst[i] = f(x[i], y[i], z[i])
+        end
+        return nothing # GPU kernels return nothing
+    end
+    kernel = @cuda launch=false func!(f, dst, x, y, z)
+    threads, blocks = gpu_config(kernel, dst)
+    kernel(f, dst, x, y, z; threads, blocks)
+    return nothing
+end
+
+function unsafe_map!(::Type{<:CudaEngine}, f::αx, dst::CuArray, x::CuArray)
+    function func!(dst, α, x)
+        for i in @gpu_range(dst)
+            @inbounds dst[i] = α*x[i]
+        end
+        return nothing # GPU kernels return nothing
+    end
+    kernel = @cuda launch=false func!(dst, f.α, x)
+    threads, blocks = gpu_config(kernel, dst)
+    kernel(dst, f.α, x; threads, blocks)
     return nothing
 end
 
@@ -190,6 +205,46 @@ function unsafe_map!(::Type{<:CudaEngine}, f::αxpβy, dst::CuArray, x::CuArray,
     kernel = @cuda launch=false func!(dst, f.α, x, f.β, y)
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, f.α, x, f.β, y; threads, blocks)
+    return nothing
+end
+
+function device_unsafe_update!(dst::CuDeviceArray,
+                               α::Real,
+                               x::CuDeviceArray)
+    @inbounds for i in @gpu_range(dst)
+        dst[i] += α*x[i]
+    end
+    return nothing # GPU kernels return nothing
+end
+
+function device_unsafe_update!(dst::CuDeviceArray,
+                               α::Real,
+                               x::CuDeviceArray,
+                               y::CuDeviceArray)
+    @inbounds for i in @gpu_range(dst)
+        dst[i] += α*x[i]*y[i]
+    end
+    return nothing # GPU kernels return nothing
+end
+
+function unsafe_update!(::Type{<:CudaEngine},
+                        dst::CuArray,
+                        α::Real,
+                        x::CuArray)
+    kernel = @cuda launch=false device_unsafe_update!(dst, α, x)
+    threads, blocks = gpu_config(kernel, dst)
+    kernel(dst, α, x; threads, blocks)
+    return nothing
+end
+
+function unsafe_update!(::Type{<:CudaEngine},
+                        dst::CuArray,
+                        α::Real,
+                        x::CuArray,
+                        y::CuArray)
+    kernel = @cuda launch=false device_unsafe_update!(dst, α, x, y)
+    threads, blocks = gpu_config(kernel, dst)
+    kernel(dst, α, x, y; threads, blocks)
     return nothing
 end
 
@@ -298,21 +353,21 @@ end
 
 # FIXME: The returned value is conservative.
 function unsafe_linesearch_stepmin(::Type{<:CudaEngine},
-                                    x::CuArray{T,N},
-                                    pm::PlusOrMinus,
-                                    d::CuArray{T,N},
-                                    lower::CuBound{T,N},
-                                    upper::CuBound{T,N}) where {T,N}
+                                   x::CuArray{T,N},
+                                   pm::PlusOrMinus,
+                                   d::CuArray{T,N},
+                                   lower::CuBound{T,N},
+                                   upper::CuBound{T,N}) where {T,N}
     return zero(T)
 end
 
 # FIXME: The returned value is conservative.
 function unsafe_linesearch_stepmax(::Type{<:CudaEngine},
-                                    x::CuArray{T,N},
-                                    pm::PlusOrMinus,
-                                    d::CuArray{T,N},
-                                    lower::CuBound{T,N},
-                                    upper::CuBound{T,N}) where {T,N}
+                                   x::CuArray{T,N},
+                                   pm::PlusOrMinus,
+                                   d::CuArray{T,N},
+                                   lower::CuBound{T,N},
+                                   upper::CuBound{T,N}) where {T,N}
     return typemax(T)
 end
 

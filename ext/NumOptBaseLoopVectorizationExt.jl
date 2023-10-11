@@ -20,7 +20,8 @@ if isdefined(Base, :get_extension)
         unsafe_map!,
         unsafe_project_direction!,
         unsafe_project_variables!,
-        unsafe_unblocked_variables!
+        unsafe_unblocked_variables!,
+        unsafe_update!
 else
     using ..LoopVectorization
     using ..NumOptBase
@@ -41,7 +42,8 @@ else
         unsafe_map!,
         unsafe_project_direction!,
         unsafe_project_variables!,
-        unsafe_unblocked_variables!
+        unsafe_unblocked_variables!,
+        unsafe_update!
 end
 
 # The @turbo macro was introduced in LoopVectorization 0.12.22 to replace @avx.
@@ -148,6 +150,44 @@ end
         else
             # Fallback to SIMD loop vectorization.
             unsafe_map!(SimdLoopEngine, f, dst, x, y)
+        end
+        return nothing
+    end
+
+    @inline function unsafe_map!(::Type{<:TurboLoopEngine},
+                                 f::Function,
+                                 dst::TurboArray{T,N},
+                                 x::TurboArray{T,N},
+                                 y::TurboArray{T,N},
+                                 z::TurboArray{T,N}) where {T<:HWReal,N}
+        if can_avx(f)
+            @turbo for i in eachindex(dst, x, y, z)
+                dst[i] = f(x[i], y[i], z[i])
+            end
+        else
+            # Fallback to SIMD loop vectorization.
+            unsafe_map!(SimdLoopEngine, f, dst, x, y, z)
+        end
+        return nothing
+    end
+
+    function unsafe_update!(::Type{<:TurboLoopEngine},
+                            dst::TurboArray{T,N},
+                            α::T,
+                            x::TurboArray{T,N}) where {T<:HWReal,N}
+        @turbo for i in eachindex(dst, x)
+            dst[i] += α*x[i]
+        end
+        return nothing
+    end
+
+    function unsafe_update!(::Type{<:TurboLoopEngine},
+                            dst::TurboArray{T,N},
+                            α::T,
+                            x::TurboArray{T,N},
+                            y::TurboArray{T,N}) where {T<:HWReal,N}
+        @turbo for i in eachindex(dst, x, y)
+            dst[i] += α*x[i]*y[i]
         end
         return nothing
     end

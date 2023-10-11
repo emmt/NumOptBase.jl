@@ -214,6 +214,10 @@ function test_operations(;
                 @test res === z
                 @test copyto!(tmp, res) ≈ (@. y_ref + α*x_ref)
             end
+            let res = @inferred update!(copyto!(z, w), α, x, y)
+                @test res === z
+                @test copyto!(tmp, res) ≈ (@. w_ref + α*x_ref*y_ref)
+            end
         end
         @testset "combine! α = $α, β = $β" for α in alphas, β ∈ betas
             let res = @inferred combine!(z, α, x, β, y)
