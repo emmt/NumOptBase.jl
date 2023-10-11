@@ -95,7 +95,7 @@ overwrites destination `dst` with the *projected direction* such that, provided
 for some `ε > 0` and where `P` is the projection onto the feasible set
 `Ω ⊆ ℝⁿ`, `x ∈ Ω` are the variables, and `d ∈ ℝⁿ` is a search direction.
 
-For efficiency, it is not checked that `x ∈ Ω` holds.
+For efficiency, it is assumed without checking that `x ∈ Ω` holds.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x, d, Ω)` is assumed.
@@ -138,7 +138,7 @@ end
 overwrites destination `dst` with ones where variables in `x` are not blocked
 by the bounds implemented by `Ω` along direction `±d` and zeros elsewhere.
 
-For efficiency, it is not checked that `x ∈ Ω` holds.
+For efficiency, it is assumed without checking that `x ∈ Ω` holds.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x, d, Ω)` is assumed.
@@ -224,8 +224,8 @@ yields the greatest nonnegative step length `αₘᵢₙ` such that:
 
     α ≤ αₘᵢₙ  ⟹  P(x₀ ± α⋅d) = x₀ ± α⋅d
 
-where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where `±`
-is either `+` or `-`.
+where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where
+`±` is either `+` or `-`.
 
 See [`linesearch_limits`](@ref) for details.
 
@@ -238,13 +238,14 @@ yields the least nonnegative step length `αₘₐₓ` such that:
 
     α ≥ αₘₐₓ  ⟹  P(x₀ ± α⋅d) = P(x₀ ± αₘₐₓ⋅d)
 
-where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where `±`
-is either `+` or `-`.
+where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where
+`±` is either `+` or `-`.
 
 See [`linesearch_limits`](@ref) for details.
 
 """
 linesearch_stepmax
+
 for func in (:linesearch_limits, :linesearch_stepmin, :linesearch_stepmax)
     unsafe_func = Symbol("unsafe_",func)
     @eval begin
@@ -337,28 +338,28 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
             return final_stepmin(αmin), final_stepmax(αmax)
         end
         function unsafe_linesearch_stepmin(::Type{<:$engine},
-                                            x::AbstractArray{T,N},
-                                            pm::PlusOrMinus,
-                                            d::AbstractArray{T,N},
-                                            lower::Bound{T,N},
-                                            upper::Bound{T,N}) where {T,N}
+                                           x::AbstractArray{T,N},
+                                           pm::PlusOrMinus,
+                                           d::AbstractArray{T,N},
+                                           lower::Bound{T,N},
+                                           upper::Bound{T,N}) where {T,N}
             αmin = initial_stepmin(T)
             @vectorize $optim for i in eachindex(x, d, only_arrays(lower, upper)...)
                 αmin = update_stepmin(αmin, x[i], pm, d[i],
-                                       get_bound(lower, i), get_bound(upper, i))
+                                      get_bound(lower, i), get_bound(upper, i))
             end
             return final_stepmin(αmin)
         end
         function unsafe_linesearch_stepmax(::Type{<:$engine},
-                                            x::AbstractArray{T,N},
-                                            pm::PlusOrMinus,
-                                            d::AbstractArray{T,N},
-                                            lower::Bound{T,N},
-                                            upper::Bound{T,N}) where {T,N}
+                                           x::AbstractArray{T,N},
+                                           pm::PlusOrMinus,
+                                           d::AbstractArray{T,N},
+                                           lower::Bound{T,N},
+                                           upper::Bound{T,N}) where {T,N}
             αmax = initial_stepmax(T)
             @vectorize $optim for i in eachindex(x, d, only_arrays(lower, upper)...)
                 αmax = update_stepmax(αmax, x[i], pm, d[i],
-                                       get_bound(lower, i), get_bound(upper, i))
+                                      get_bound(lower, i), get_bound(upper, i))
             end
             return final_stepmax(αmax)
         end
@@ -368,7 +369,7 @@ end
 """
     NumOptBase.get_bound(B, i)
 
-yields a the bound value at index `i` for object `B` implementing lower or
+yields the bound value at index `i` for object `B` implementing lower or
 upper bounds. This helper function is to simplify code, it yields `B[i]` if `B`
 is an array and `B` otherwise. Bound checking is propagated.
 
@@ -466,9 +467,9 @@ function update_limits(αmin::T, αmax::T, x::T, pm::PlusOrMinus, d::T,
 end
 
 function update_stepmin(αmin::T, x::T, pm::PlusOrMinus, d::T,
-                         lower::L, upper::U) where {T<:AbstractFloat,
-                                                    L<:Union{T,Nothing},
-                                                    U<:Union{T,Nothing}}
+                        lower::L, upper::U) where {T<:AbstractFloat,
+                                                   L<:Union{T,Nothing},
+                                                   U<:Union{T,Nothing}}
     if L === T
         α = step_to_bound(x, pm, d, lower)
         αmin = update_stepmin(αmin, α)
@@ -481,9 +482,9 @@ function update_stepmin(αmin::T, x::T, pm::PlusOrMinus, d::T,
 end
 
 function update_stepmax(αmax::T, x::T, pm::PlusOrMinus, d::T,
-                         lower::L, upper::U) where {T<:AbstractFloat,
-                                                    L<:Union{T,Nothing},
-                                                    U<:Union{T,Nothing}}
+                        lower::L, upper::U) where {T<:AbstractFloat,
+                                                   L<:Union{T,Nothing},
+                                                   U<:Union{T,Nothing}}
     if L === T
         α = step_to_bound(x, pm, d, lower)
         αmax = update_stepmax(αmax, α)
