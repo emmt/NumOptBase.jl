@@ -445,6 +445,7 @@ function test_bounds()
         end
 
         dims = (3, 4)
+        N = length(dims)
         vals = -5:6
         floats = (Float32, Float64)
         bounds = Dict(
@@ -464,14 +465,42 @@ function test_bounds()
             # Bounded above:
             "(nothing,0)"          => (nothing, 0),
             "(-Inf,0)"             => (-Inf, 0),
-            #=
-            =#
         )
+
+        @testset "Conversion of bounded sets (Ω = $B)" for B in keys(bounds)
+            atol = 0
+            rtol = 2eps(Float32)
+            T₁ = Float64
+            T₂ = Float32
+            Ω₁ = BoundedSet{T₁,N}(bounds[B]...)
+            Ω₂ = BoundedSet{T₂,N}(bounds[B]...)
+            Ω₃ = BoundedSet{T₂,N}(Ω₁)
+            Ω₄ = convert(BoundedSet{T₁,N}, Ω₂)
+            @test BoundedSet{T₁,N}(Ω₁) === Ω₁
+            @test BoundedSet{T₂,N}(Ω₂) === Ω₂
+            @test convert(BoundedSet{T₁,N}, Ω₁) === Ω₁
+            @test convert(BoundedSet{T₂,N}, Ω₂) === Ω₂
+            @test Ω₃ isa BoundedSet{T₂,N}
+            @test Ω₄ isa BoundedSet{T₃,N}
+            if bounds[B][1] === nothing
+                @test Ω₃.lower === Ω₂.lower === nothing
+                @test Ω₄.lower === Ω₁.lower === nothing
+            else
+                @test Ω₃.lower ≈ Ω₂.lower atol=atol rtol=rtol
+                @test Ω₄.lower ≈ Ω₁.lower atol=atol rtol=rtol
+            end
+            if bounds[B][2] === nothing
+                @test Ω₃.upper === Ω₂.upper === nothing
+                @test Ω₄.upper === Ω₁.upper === nothing
+            else
+                @test Ω₃.upper ≈ Ω₂.upper atol=atol rtol=rtol
+                @test Ω₄.upper ≈ Ω₁.upper atol=atol rtol=rtol
+            end
+        end
 
         @testset "Project variables ($T, $(pm)d, Ω = $B)" for T in floats,
             pm in (+, -), B in keys(bounds)
 
-            N = length(dims)
             Ω = BoundedSet{T,N}(bounds[B]...)
             x0 = Array{T}(reshape(vals, dims))
             x = ref_project_variables!(similar(x0), x0, Ω) # make sure x is feasible

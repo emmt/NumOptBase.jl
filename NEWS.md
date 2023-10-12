@@ -2,9 +2,11 @@
 
 ## Version 0.2.1
 
-Extend `update!` so that `update!(x, β, y, z)` returns `x` overwritten with
-`x + β⋅y⋅z` performed element-wise. Arguments `x`, `y`, and `z` are arrays of
-the same size while `β` is a scalar.
+- Extend `update!` so that `update!(x, β, y, z)` returns `x` overwritten with
+  `x + β⋅y⋅z` performed element-wise. Arguments `x`, `y`, and `z` are arrays of
+  the same size while `β` is a scalar.
+
+- Implement conversions between bounded sets.
 
 ## Version 0.2.0
 

@@ -148,7 +148,7 @@ is the abstract type identifying implementation for CUDA arrays.
 abstract type CudaEngine <: Engine end
 
 """
-    NumOptBase.Bound{T,N}
+    Bound{T,N}
 
 is the type of argument suitable to represent a bound for `N`-dimensional
 variables of element type `T` in `NumOptBase` package.
@@ -172,11 +172,17 @@ bounds even though all lower (resp. upper) bound values may be `-∞` (resp.
 const Bound{T,N} = Union{Nothing,T,AbstractArray{T,N}}
 
 """
-    NumOptBase.BoundedSet{T,N}(lower, upper) -> Ω
+    BoundedSet{T,N}(lower, upper) -> Ω
 
 yields an object `Ω` representing the set of variables bounded below by `lower`
 and bounded above by `upper`. Type parameter `T` and `N` are the floating-point
 type for computations and the number of dimensions of the variables.
+
+Converting a bounded set `Ω` to other type parameters `T` and/or `N` can be
+done by `convert` or by:
+
+    BoundedSet{T}(Ω)
+    BoundedSet{T,N}(Ω)
 
 See [`NumOptBase.Bound`](@ref) for possible bound arguments.
 
@@ -185,6 +191,7 @@ struct BoundedSet{T,N,L<:Bound{T,N},U<:Bound{T,N}}
     lower::L
     upper::U
 end
+
 function BoundedSet{T,N}(lower::L, upper::U) where {T,N,L<:Bound{T,N},U<:Bound{T,N}}
     # FIXME: Check whether set is feasible.
     return BoundedSet{T,N,L,U}(lower, upper)
@@ -200,3 +207,13 @@ function BoundedSet{T,N}(lower, upper) where {T,N}
     return BoundedSet{T,N}(to_bound(T, Val(N), lower),
                            to_bound(T, Val(N), upper))
 end
+
+BoundedSet{T}(Ω::BoundedSet{T,N}) where {T,N} = Ω
+BoundedSet{T}(Ω::BoundedSet{<:Any,N}) where {T,N} = BoundedSet{T,N}(Ω)
+
+BoundedSet{T,N}(Ω::BoundedSet{T,N}) where {T,N} = Ω
+BoundedSet{T,N}(Ω::BoundedSet) where {T,N} = BoundedSet{T,N}(Ω.lower, Ω.upper)
+
+Base.convert(::Type{T}, Ω::T) where {T<:BoundedSet} = Ω
+Base.convert(::Type{BoundedSet{T}}, Ω::BoundedSet) where {T} = BoundedSet{T}(Ω)
+Base.convert(::Type{BoundedSet{T,N}}, Ω::BoundedSet) where {T,N} = BoundedSet{T,N}(Ω)
