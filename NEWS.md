@@ -8,6 +8,8 @@
 
 - Implement conversions between bounded sets.
 
+- New `Projector` constructor to build a projector from a feasible set.
+
 ## Version 0.2.0
 
 This branch adds bound constraints.

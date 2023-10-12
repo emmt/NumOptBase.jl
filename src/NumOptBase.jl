@@ -25,6 +25,7 @@ export
     # Bound constraints:
     Bound,
     BoundedSet,
+    Projector,
     linesearch_limits,
     linesearch_stepmax,
     linesearch_stepmin,

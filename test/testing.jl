@@ -472,16 +472,16 @@ function test_bounds()
             rtol = 2eps(Float32)
             T₁ = Float64
             T₂ = Float32
-            Ω₁ = BoundedSet{T₁,N}(bounds[B]...)
-            Ω₂ = BoundedSet{T₂,N}(bounds[B]...)
-            Ω₃ = BoundedSet{T₂,N}(Ω₁)
-            Ω₄ = convert(BoundedSet{T₁,N}, Ω₂)
+            Ω₁ = @inferred BoundedSet{T₁,N}(bounds[B]...)
+            Ω₂ = @inferred BoundedSet{T₂,N}(bounds[B]...)
+            Ω₃ = @inferred BoundedSet{T₂,N}(Ω₁)
+            Ω₄ = @inferred convert(BoundedSet{T₁,N}, Ω₂)
             @test BoundedSet{T₁,N}(Ω₁) === Ω₁
             @test BoundedSet{T₂,N}(Ω₂) === Ω₂
             @test convert(BoundedSet{T₁,N}, Ω₁) === Ω₁
             @test convert(BoundedSet{T₂,N}, Ω₂) === Ω₂
             @test Ω₃ isa BoundedSet{T₂,N}
-            @test Ω₄ isa BoundedSet{T₃,N}
+            @test Ω₄ isa BoundedSet{T₁,N}
             if bounds[B][1] === nothing
                 @test Ω₃.lower === Ω₂.lower === nothing
                 @test Ω₄.lower === Ω₁.lower === nothing
@@ -501,7 +501,8 @@ function test_bounds()
         @testset "Project variables ($T, $(pm)d, Ω = $B)" for T in floats,
             pm in (+, -), B in keys(bounds)
 
-            Ω = BoundedSet{T,N}(bounds[B]...)
+            Ω = @inferred BoundedSet{T,N}(bounds[B]...)
+            P = @inferred Projector(Ω)
             x0 = Array{T}(reshape(vals, dims))
             x = ref_project_variables!(similar(x0), x0, Ω) # make sure x is feasible
             y = similar(x)
@@ -509,6 +510,9 @@ function test_bounds()
             d = ones(T, size(x))
             if pm === +
                 @test y === @inferred project_variables!(y, x0, Ω)
+                @test y == x
+                @test x == @inferred P(x0)
+                @test y === @inferred P(y, x0)
                 @test y == x
             end
             @test y === @inferred project_direction!(y, x, pm, d, Ω)

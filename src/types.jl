@@ -217,3 +217,28 @@ BoundedSet{T,N}(Ω::BoundedSet) where {T,N} = BoundedSet{T,N}(Ω.lower, Ω.upper
 Base.convert(::Type{T}, Ω::T) where {T<:BoundedSet} = Ω
 Base.convert(::Type{BoundedSet{T}}, Ω::BoundedSet) where {T} = BoundedSet{T}(Ω)
 Base.convert(::Type{BoundedSet{T,N}}, Ω::BoundedSet) where {T,N} = BoundedSet{T,N}(Ω)
+
+"""
+    P = Projector(Ω)
+
+yields a callable object implementing the projection onto subset `Ω`. The
+result can be used as:
+
+    xₚ = P(x)
+
+to yield the projection `xₚ` of `x` onto `Ω` or as:
+
+   P(xₚ, x)
+
+to overwrite `xₚ` with the projection of `x` onto `Ω`.
+
+Note that this assumes that [`NumOptBase.project_variables`](@ref) is
+applicable for the variables `x` and for objects like `Ω`.
+
+"""
+struct Projector{T}
+    Ω::T
+end
+(P::Projector)(x::AbstractArray) = P(similar(x), x)
+(P::Projector)(dst::AbstractArray, src::AbstractArray) =
+    project_variables!(dst, src, P.Ω)
