@@ -37,21 +37,19 @@ using TypeUtils, Unitless
 using ArrayTools: @assert_same_axes
 using StructuredArrays
 using LinearAlgebra
+isdefined(Base, :get_extension) || using Requires
 
 include("types.jl")
 include("utils.jl")
 include("vops.jl")
 include("bounds.jl")
 
-@static if !isdefined(Base, :get_extension)
-    using Requires
-    function __init__()
-        if !isdefined(Base, :get_extension)
-            @require CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba" include(
-                "../ext/NumOptBaseCUDAExt.jl")
-            @require LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890" include(
-                "../ext/NumOptBaseLoopVectorizationExt.jl")
-        end
+function __init__()
+    @static if !isdefined(Base, :get_extension)
+        @require CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba" include(
+            "../ext/NumOptBaseCUDAExt.jl")
+        @require LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890" include(
+            "../ext/NumOptBaseLoopVectorizationExt.jl")
     end
 end
 
