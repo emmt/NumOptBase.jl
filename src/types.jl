@@ -218,9 +218,8 @@ BoundedSet{T}(Ω::BoundedSet{<:Any,N}) where {T,N} = BoundedSet{T,N}(Ω)
 BoundedSet{T,N}(Ω::BoundedSet{T,N}) where {T,N} = Ω
 BoundedSet{T,N}(Ω::BoundedSet) where {T,N} = BoundedSet{T,N}(Ω.lower, Ω.upper)
 
-Base.convert(::Type{T}, Ω::T) where {T<:BoundedSet} = Ω
-Base.convert(::Type{BoundedSet{T}}, Ω::BoundedSet) where {T} = BoundedSet{T}(Ω)
-Base.convert(::Type{BoundedSet{T,N}}, Ω::BoundedSet) where {T,N} = BoundedSet{T,N}(Ω)
+Base.convert(::Type{W}, Ω::W) where {W<:BoundedSet} = Ω
+Base.convert(::Type{W}, Ω::BoundedSet) where {W<:BoundedSet} = W(Ω)
 
 """
     P = Projector(Ω)
