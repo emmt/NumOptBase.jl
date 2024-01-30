@@ -11,14 +11,6 @@ StructuredArrays = "2e8cd123-6858-488d-b42d-068777248635"
 TypeUtils = "c3b1956e-8857-4d84-9b79-890df85b1e67"
 Unitless = "c904d999-9673-4878-a3dd-e3ef1851788a"
 
-[weakdeps]
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
-LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
-
-[extensions]
-NumOptBaseCUDAExt = "CUDA"
-NumOptBaseLoopVectorizationExt = "LoopVectorization"
-
 [compat]
 ArrayTools = "0.2.7, 0.3"
 CUDA = "1, 2, 3, 4, 5"
@@ -29,6 +21,10 @@ TypeUtils = "0.2, 0.3"
 Unitless = "2.1"
 julia = "1.2"
 
+[extensions]
+NumOptBaseCUDAExt = "CUDA"
+NumOptBaseLoopVectorizationExt = "LoopVectorization"
+
 [extras]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
@@ -36,3 +32,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "CUDA", "LoopVectorization"]
+
+[weakdeps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
