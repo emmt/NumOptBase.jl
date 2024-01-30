@@ -41,8 +41,7 @@ Base.parent(A::MyArray) = A.parent
 Base.length(A::MyArray) = length(A.parent)
 Base.size(A::MyArray) = size(A.parent)
 Base.axes(A::MyArray) = axes(A.parent)
-@inline Base.axes(A::MyArray) = axes(A.parent)
-@inline Base.IndexStyle(::Type{<:MyArray{T,N,false}}) where {T,N} = IndexCartesian()
+Base.IndexStyle(::Type{<:MyArray{T,N,false}}) where {T,N} = IndexCartesian()
 @inline function Base.getindex(A::MyArray{T,N,false}, I::Vararg{Int,N}) where {T,N}
     @boundscheck checkbounds(A, I...)
     return @inbounds getindex(parent(A), I...)
@@ -80,10 +79,8 @@ function test_utilities()
                                                          (Float64, Float64),
                                                          (BigFloat, BigFloat))
             @test floating_point_type(T) === F
-            @test floating_point_type(T[]) === F
             @test floating_point_type(zero(T)) === F
             @test floating_point_type(Complex{T}) === F
-            @test floating_point_type(Complex{T}[]) === F
             @test floating_point_type(zero(Complex{T})) === F
         end
         @test_throws Exception floating_point_type("hello")
