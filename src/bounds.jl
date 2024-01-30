@@ -26,7 +26,7 @@ all be equal to `+∞`.
 
 """
 is_bounded_above(b::Nothing) = false
-is_bounded_above(b::Real) = b < typemax(b)
+is_bounded_above(b::Number) = b < typemax(b)
 is_bounded_above(b::AbstractArray) = true
 is_bounded_above(b::AbstractUniformArray) = is_bounded_above(StructuredArrays.getval(b))
 
@@ -57,7 +57,7 @@ unspecified, `E = NumOptBase.engine(dst, x, Ω)` is assumed.
 """
 function project_variables!(dst::AbstractArray{T,N},
                             x::AbstractArray{T,N},
-                            Ω::BoundedSet{T,N}) where {T<:Real,N}
+                            Ω::BoundedSet{T,N}) where {T,N}
     return project_variables!(
         engine(dst, x, only_arrays(Ω.lower, Ω.upper)...), dst, x, Ω)
 end
@@ -65,7 +65,7 @@ end
 function project_variables!(::Type{E},
                             dst::AbstractArray{T,N},
                             x::AbstractArray{T,N},
-                            Ω::BoundedSet{T,N}) where {E<:Engine,T<:Real,N}
+                            Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
     # Check arguments and directly handle the unbounded case. If there are any
     # bounds, call an unsafe method with non-limiting bounds specified as
     # `nothing` so as to allow for dispatching on an optimized version based on
@@ -105,7 +105,7 @@ function project_direction!(dst::AbstractArray{T,N},
                             x::AbstractArray{T,N},
                             pm::PlusOrMinus,
                             d::AbstractArray{T,N},
-                            Ω::BoundedSet{T,N}) where {T<:Real,N}
+                            Ω::BoundedSet{T,N}) where {T,N}
     return project_direction!(
         engine(dst, x, d, only_arrays(Ω.lower, Ω.upper)...), dst, x, pm, d, Ω)
 end
@@ -115,7 +115,7 @@ function project_direction!(::Type{E},
                             x::AbstractArray{T,N},
                             pm::PlusOrMinus,
                             d::AbstractArray{T,N},
-                            Ω::BoundedSet{T,N}) where {E<:Engine,T<:Real,N}
+                            Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
     # NOTE: See comments in `project_variables!`.
     check_axes(dst, x, d, only_arrays(Ω.lower, Ω.upper)...)
     below, above = is_bounded(Ω)
@@ -130,7 +130,6 @@ function project_direction!(::Type{E},
     end
     return dst
 end
-
 
 """
     unblocked_variables!([E,] dst, x, ±, d, Ω) -> dst
@@ -157,7 +156,7 @@ function unblocked_variables!(dst::AbstractArray{<:Real,N},
                               x::AbstractArray{T,N},
                               pm::PlusOrMinus,
                               d::AbstractArray{T,N},
-                              Ω::BoundedSet{T,N}) where {T<:Real,N}
+                              Ω::BoundedSet{T,N}) where {T,N}
     return unblocked_variables!(
         engine(dst, x, d, only_arrays(Ω.lower, Ω.upper)...), dst, x, pm, d, Ω)
 end
@@ -167,7 +166,7 @@ function unblocked_variables!(::Type{E},
                               x::AbstractArray{T,N},
                               pm::PlusOrMinus,
                               d::AbstractArray{T,N},
-                              Ω::BoundedSet{T,N}) where {E<:Engine,T<:Real,N}
+                              Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
     # NOTE: See comments in `project_variables!`.
     check_axes(dst, x, d, only_arrays(Ω.lower, Ω.upper)...)
     below, above = is_bounded(Ω)
@@ -253,7 +252,7 @@ for func in (:linesearch_limits, :linesearch_stepmin, :linesearch_stepmax)
         function $func(x::AbstractArray{T,N},
                        pm::PlusOrMinus,
                        d::AbstractArray{T,N},
-                       Ω::BoundedSet{T,N}) where {T<:Real,N}
+                       Ω::BoundedSet{T,N}) where {T,N}
             return $func(
                 engine(x, d, only_arrays(Ω.lower, Ω.upper)...), x, pm, d, Ω)
         end
@@ -262,7 +261,7 @@ for func in (:linesearch_limits, :linesearch_stepmin, :linesearch_stepmax)
                        x::AbstractArray{T,N},
                        pm::PlusOrMinus,
                        d::AbstractArray{T,N},
-                       Ω::BoundedSet{T,N}) where {E<:Engine,T<:Real,N}
+                       Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
             # NOTE: See comments in `project_variables!`.
             check_axes(x, d, only_arrays(Ω.lower, Ω.upper)...)
             below, above = is_bounded(Ω)
@@ -395,40 +394,40 @@ end
 # simplify expressions depending on the type of the bounds. All these methods
 # are supposed to be in-lined.
 
-project(x::Real, lower, upper) =
+project(x, lower, upper) =
     project_above(project_below(x, lower), upper)
 
-project(x::Real, pm::PlusOrMinus, d::Real, lower, upper) =
+project(x, pm::PlusOrMinus, d, lower, upper) =
     ifelse(is_unblocked(x, pm, d, lower, upper), d, zero(d))
 
-is_unblocked(x::Real, pm::PlusOrMinus, d::Real, lower, upper) =
+is_unblocked(x, pm::PlusOrMinus, d, lower, upper) =
     (is_unblocked_below(x, pm, d, lower) &
      is_unblocked_above(x, pm, d, upper))
 
-is_unblocked(::Type{T}, x::Real, pm::PlusOrMinus, d::Real, lower, upper) where {T} =
+is_unblocked(::Type{T}, x, pm::PlusOrMinus, d, lower, upper) where {T} =
     ifelse(is_unblocked(x, pm, d, lower, upper), one(T), zero(T))
 
-project_below(x::T, lower::T) where {T<:Real} = x < lower ? lower : x
-project_below(x::T, lower::Nothing) where {T<:Real} = x
+project_below(x::T, lower::T) where {T} = x < lower ? lower : x
+project_below(x::T, lower::Nothing) where {T} = x
 
-project_above(x::T, upper::T) where {T<:Real} = x > upper ? upper : x
-project_above(x::T, upper::Nothing) where {T<:Real} = x
+project_above(x::T, upper::T) where {T} = x > upper ? upper : x
+project_above(x::T, upper::Nothing) where {T} = x
 
-is_unblocked_below(x::Real, pm::PlusOrMinus, d::Real, lower::Nothing) = true
-is_unblocked_below(x::Real, pm::PlusOrMinus, d::Real, lower::Real) =
+is_unblocked_below(x, pm::PlusOrMinus, d, lower::Nothing) = true
+is_unblocked_below(x, pm::PlusOrMinus, d, lower) =
     (x > lower) | is_positive(pm, d)
 
-is_unblocked_above(x::Real, pm::PlusOrMinus, d::Real, upper::Nothing) = true
-is_unblocked_above(x::Real, pm::PlusOrMinus, d::Real, upper::Real) =
+is_unblocked_above(x, pm::PlusOrMinus, d, upper::Nothing) = true
+is_unblocked_above(x, pm::PlusOrMinus, d, upper) =
     (x < upper) | is_negative(pm, d)
 
-is_positive(         x::Real) = x > zero(x)
-is_positive(::Plus,  x::Real) = is_positive(x)
-is_positive(::Minus, x::Real) = is_negative(x)
+is_positive(         x) = x > zero(x)
+is_positive(::Plus,  x) = is_positive(x)
+is_positive(::Minus, x) = is_negative(x)
 
-is_negative(         x::Real) = x < zero(x)
-is_negative(::Plus,  x::Real) = is_negative(x)
-is_negative(::Minus, x::Real) = is_positive(x)
+is_negative(         x) = x < zero(x)
+is_negative(::Plus,  x) = is_negative(x)
+is_negative(::Minus, x) = is_positive(x)
 
 # NOTE: The following code relies on IEEE arithmetics to compute the
 #       line-search step limits. In particular, it is assumed that comparisons
@@ -437,21 +436,24 @@ is_negative(::Minus, x::Real) = is_positive(x)
 #
 # step_to_bound(x,±,d,b) yields the value of the step α to reach the bound b,
 # may yield NaN, infinite, or negative value.
-step_to_bound(x::T, ::Plus,  d::T, b::T) where {T<:Real} = (b - x)/d
-step_to_bound(x::T, ::Minus, d::T, b::T) where {T<:Real} = (x - b)/d
+step_to_bound(x::T, ::Plus,  d::T, b::T) where {T} = (b - x)/d
+step_to_bound(x::T, ::Minus, d::T, b::T) where {T} = (x - b)/d
 #
 # Initialize, update, and finalize αmin.
-initial_stepmin(::Type{T}) where {T<:AbstractFloat} = typemax(T)
-update_stepmin(αmin::T, α::T) where {T<:AbstractFloat} = zero(α) ≤ α < αmin ? α : αmin
-final_stepmin(αmin::AbstractFloat) = αmin
+initial_stepmin(::Type{T}) where {T} = typemax(T)
+update_stepmin(αmin::T, α::T) where {T} = zero(α) ≤ α < αmin ? α : αmin
+final_stepmin(αmin) = αmin
 #
 # Initialize, update, and finalize αmax.
-initial_stepmax(::Type{T}) where {T<:AbstractFloat} = -one(T)
-update_stepmax(αmax::T, α::T) where {T<:AbstractFloat} = α > αmax ? α : αmax
-final_stepmax(αmax::AbstractFloat) = αmax ≥ zero(αmax) ? αmax : typemax(αmax)
+initial_stepmax(::Type{T}) where {T} = -one(T)
+update_stepmax(αmax::T, α::T) where {T} = α > αmax ? α : αmax
+final_stepmax(αmax) = αmax ≥ zero(αmax) ? αmax : typemax(αmax)
+
+# NOTE: The `update_...` methods are written so as to avoid branches, except
+#       those based on types which should be optimized out by the compiler.
 
 function update_limits(αmin::T, αmax::T, x::T, pm::PlusOrMinus, d::T,
-                       lower::L, upper::U) where {T<:AbstractFloat,
+                       lower::L, upper::U) where {T,
                                                   L<:Union{T,Nothing},
                                                   U<:Union{T,Nothing}}
     if L === T
@@ -468,7 +470,7 @@ function update_limits(αmin::T, αmax::T, x::T, pm::PlusOrMinus, d::T,
 end
 
 function update_stepmin(αmin::T, x::T, pm::PlusOrMinus, d::T,
-                        lower::L, upper::U) where {T<:AbstractFloat,
+                        lower::L, upper::U) where {T,
                                                    L<:Union{T,Nothing},
                                                    U<:Union{T,Nothing}}
     if L === T
@@ -483,7 +485,7 @@ function update_stepmin(αmin::T, x::T, pm::PlusOrMinus, d::T,
 end
 
 function update_stepmax(αmax::T, x::T, pm::PlusOrMinus, d::T,
-                        lower::L, upper::U) where {T<:AbstractFloat,
+                        lower::L, upper::U) where {T,
                                                    L<:Union{T,Nothing},
                                                    U<:Union{T,Nothing}}
     if L === T
