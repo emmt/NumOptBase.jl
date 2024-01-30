@@ -375,7 +375,7 @@ upper bounds. This helper function is to simplify code, it yields `B[i]` if `B`
 is an array and `B` otherwise. Bound checking is propagated.
 
 """
-@inline get_bound(B::Union{Real,Nothing}, i) = B
+get_bound(B, i) = B
 @inline function get_bound(B::AbstractArray{<:Any,N}, i::CartesianIndex{N}) where {N}
     I = Tuple(i)
 	@boundscheck checkbounds(B, I...)

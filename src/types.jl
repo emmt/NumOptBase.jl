@@ -190,12 +190,16 @@ See [`NumOptBase.Bound`](@ref) for possible bound arguments.
 struct BoundedSet{T,N,L<:Bound{T,N},U<:Bound{T,N}}
     lower::L
     upper::U
+    function BoundedSet{T,N,L,U}(lower::L, upper::U) where {T,N,L<:Bound{T,N},U<:Bound{T,N}}
+        # FIXME: Check whether set is feasible.
+        return new{T,N,L,U}(lower, upper)
+    end
 end
 
 function BoundedSet{T,N}(lower::L, upper::U) where {T,N,L<:Bound{T,N},U<:Bound{T,N}}
-    # FIXME: Check whether set is feasible.
     return BoundedSet{T,N,L,U}(lower, upper)
 end
+
 function BoundedSet{T,N}(lower, upper) where {T,N}
     to_bound(::Type{T}, ::Val{N}, B::Bound{T,N}) where {T,N} = B
     to_bound(::Type{T}, ::Val{N}, B::Number) where {T,N} = as(T, B)
