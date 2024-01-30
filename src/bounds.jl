@@ -8,8 +8,8 @@ const PlusOrMinus = Union{Plus,Minus}
     NumOptBase.is_bounded_below(b) -> bool
 
 yields whether lower bound set by `b` may be limiting. For efficiency, if `b`
-is multi-valued, it is considered as limiting even though all its values may be
-equal to `-∞`.
+is multi-valued, it is considered as limiting even though all its values may
+all be equal to `-∞`.
 
 """
 is_bounded_below(b::Nothing) = false
@@ -21,8 +21,8 @@ is_bounded_below(b::AbstractUniformArray) = is_bounded_below(StructuredArrays.ge
     NumOptBase.is_bounded_above(b) -> bool
 
 yields whether upper bound set by `b` may be limiting. For efficiency, if `b`
-is multi-valued, it is considered as limiting even though all its values may be
-equal to `+∞`.
+is multi-valued, it is considered as limiting even though all its values may
+all be equal to `+∞`.
 
 """
 is_bounded_above(b::Nothing) = false
@@ -46,7 +46,7 @@ is_bounded(Ω::BoundedSet) = (is_bounded_below(Ω.lower),
 
 overwrites destination `dst` with the *projected variables* such that:
 
-    dst = P(x) = argmin ‖y - x‖²   s.t.   y ∈ Ω
+    dst = P(x) = argmin_{y ∈ Ω} ‖y - x‖²
 
 where `P` is the projection onto the feasible set `Ω` and `x` are the
 variables.
@@ -143,9 +143,10 @@ For efficiency, it is assumed without checking that `x ∈ Ω` holds.
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x, d, Ω)` is assumed.
 
-Note that, if `±d = -∇f(x)`, with `∇f(x)` the gradient of the objective
-function, the destination is set to zero everywhere the Karush-Kuhn-Tucker
-(K.K.T.) conditions are satisfied for the problem:
+It is assumed that `x[i]` is blocked if `d[i] = 0`. Hence, if `±d = -∇f(x)`,
+with `∇f(x)` the gradient of the objective function, the destination is set to
+zero everywhere the Karush-Kuhn-Tucker (K.K.T.) conditions are satisfied for
+the problem:
 
     minₓ f(x) s.t. x ∈ Ω
 
@@ -185,8 +186,8 @@ end
 """
     linesearch_limits([E,] x₀, ±, d, Ω) -> αₘᵢₙ, αₘₐₓ
 
-yields the limits `αₘᵢₙ` and `αₘₐₓ` for the step length `α` in a line-search
-where iterates `x` are given by:
+yields the limits `αₘᵢₙ` and `αₘₐₓ` for the step length `α ≥ 0` in a
+line-search where iterates `x` are given by:
 
       x = P(x₀ ± α⋅d)
 
@@ -198,11 +199,11 @@ unspecified, `E = NumOptBase.engine(dst, x, d, Ω)` is assumed.
 
 Output value `αₘᵢₙ` is the greatest nonnegative step length such that:
 
-    α ≤ αₘᵢₙ  ⟹  P(x₀ ± α⋅d) = x₀ ± α⋅d
+    0 ≤ α ≤ αₘᵢₙ  ⟹  P(x₀ ± α⋅d) = x₀ ± α⋅d
 
 Output value `αₘₐₓ` is the least nonnegative step length such that:
 
-    α ≥ αₘₐₓ  ⟹  P(x₀ ± α⋅d) = P(x₀ ± αₘₐₓ⋅d)
+    α ≥ αₘₐₓ ≥ 0  ⟹  P(x₀ ± α⋅d) = P(x₀ ± αₘₐₓ⋅d)
 
 In other words, no bounds are overcome if `0 ≤ α ≤ αₘᵢₙ` and the projected
 variables are all the same for any `α` such that `α ≥ αₘₐₓ ≥ 0`.
@@ -222,7 +223,7 @@ linesearch_limits
 
 yields the greatest nonnegative step length `αₘᵢₙ` such that:
 
-    α ≤ αₘᵢₙ  ⟹  P(x₀ ± α⋅d) = x₀ ± α⋅d
+    0 ≤ α ≤ αₘᵢₙ  ⟹  P(x₀ ± α⋅d) = x₀ ± α⋅d
 
 where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where
 `±` is either `+` or `-`.
@@ -236,7 +237,7 @@ linesearch_stepmin
 
 yields the least nonnegative step length `αₘₐₓ` such that:
 
-    α ≥ αₘₐₓ  ⟹  P(x₀ ± α⋅d) = P(x₀ ± αₘₐₓ⋅d)
+    α ≥ αₘₐₓ ≥ 0  ⟹  P(x₀ ± α⋅d) = P(x₀ ± αₘₐₓ⋅d)
 
 where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where
 `±` is either `+` or `-`.
