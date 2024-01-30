@@ -33,7 +33,7 @@ export
     project_variables!,
     unblocked_variables!
 
-using TypeUtils
+using TypeUtils, Unitless
 using ArrayTools: @assert_same_axes
 using StructuredArrays
 using LinearAlgebra

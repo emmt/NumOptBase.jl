@@ -79,28 +79,13 @@ flatten(x::AbstractVector) = x
 flatten(x::AbstractArray) = reshape(x, length(x))
 
 """
-    NumOptBase.convert_multiplier(α, x)
+    NumOptBase.convert_multiplier(α, A)
 
-converts scalar real `α` to a floating-point type whose numerical precision is
-the same as that of the elements of `x`.
-
-"""
-convert_multiplier(α::Real, x::AbstractArray) = as(floating_point_type(x), α)
+converts scalar number `α` to a floating-point type whose numerical precision
+is the same as that of the elements of abstract array `A`.
 
 """
-    NumOptBase.floating_point_type(x)
-
-yields the floating-point type corresponding to the numeric type or value `x`.
-If `x` is a numeric array type or instance, the floating-point type of the
-elements of `x` is returned. If `x` is complex, the floating-point type of the
-real and imaginary parts of `x` is returned.
-
-"""
-floating_point_type(x::Any) = floating_point_type(typeof(x))
-floating_point_type(::Type{T}) where {T<:AbstractArray} = floating_point_type(eltype(T))
-floating_point_type(::Type{T}) where {R<:Real,T<:RealComplex{R}} = float(R)
-@noinline floating_point_type(T::Union{DataType,UnionAll}) =
-    throw(ArgumentError("cannot determine floating-point type of `$T`"))
+convert_multiplier(α::Number, A::AbstractArray) = convert_floating_point_type(eltype(A), α)
 
 # The structures `αx`, `αxpy`, `αxmy`, and `αxpβy` are a trick to make our own
 # closure objects to implement the `unsafe_ax!`, `unsafe_axpy!`, and

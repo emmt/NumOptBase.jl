@@ -1,5 +1,10 @@
 # User visible changes in `NumOptBase`
 
+## Version 0.2.2
+
+- In `NumOptBase.convert_multiplier(α, A)`, the scalar `α` may be any `Number`
+  (not just a `Real`).
+
 ## Version 0.2.1
 
 - Extend `update!` so that `update!(x, β, y, z)` returns `x` overwritten with
