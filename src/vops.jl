@@ -48,6 +48,9 @@ end
 apply!(y::AbstractArray{T,N}, A::Diag{T,N}, x::AbstractArray{T,N}) where {T,N} =
     multiply!(y, diag(A), x)
 
+LinearAlgebra.lmul!(dst::AbstractArray, A::Union{Diag,Identity}, b::AbstractArray) =
+    apply!(dst, A, b)
+
 """
     NumOptBase.copy!(dst, x) -> dst
 
