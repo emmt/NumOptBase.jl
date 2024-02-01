@@ -30,9 +30,9 @@ is the set of acceptable solutions with `n` the dimension of the problem.
 
 It is assumed by this package that the variables `x` are stored in Julia
 arrays. Depending on the problem, these arrays may be multidimensional but are
-treated as real-valued *vectors* by the numerical optimization methods. For
-efficiency, all entries of the arrays storing variables must have the same
-floating-point type.
+treated as real-valued *vectors* by the numerical optimization methods. In that
+respect, complex numbers are considered as pairs of reals. For efficiency, all
+entries of the arrays storing variables must have the same floating-point type.
 
 For now, quantities with units (such as those provided by the
 [`Unitful`](https://github.com/PainterQubits/Unitful.jl) package) are not
@@ -53,6 +53,10 @@ significant storage or store their result in an output array provided by the
 caller. In that way, the storage requirements can be strictly controlled. All
 these *public* methods are exported except `NumOptBase.copy!` which exists in
 Julia base but with a slightly different semantic regarding vectors.
+
+As said before, these methods treat the variables as vectors of reals, except
+that methods taking multiple array arguments throw a `DimensionMismatch`
+exception if these arguments do not have the same axes.
 
 
 ### Norms
@@ -98,15 +102,16 @@ a scalar. If `iszero(α)` holds, `dst` is zero-filled whatever the values in
 
 `update!(x, β, y)` returns `x` overwritten with `x + β⋅y` performed
 element-wise. Arguments `x` and `y` are arrays of the same size while `β` is a
-scalar. This is a shortcut for `combine!(x, 1, x, β, y)`.
+scalar. The `update!` method may be seen as a shortcut for `combine!(x, 1, x,
+β, y)`.
 
 `update!(x, β, y, z)` returns `x` overwritten with `x + β⋅y⋅z` performed
 element-wise. Arguments `x`, `y`, and `z` are arrays of the same size while `β`
 is a scalar.
 
-`multiply!(dst, x, y)` returns `dst` overwritten with the element-wise multiplication
-(also known as *Hadamard product*) of `x` by `y`. Arguments `dst`, `x`,
-and `y` are arrays of the same size.
+`multiply!(dst, x, y)` returns `dst` overwritten with the element-wise
+multiplication (also known as *Hadamard product*) of `x` by `y`. Arguments
+`dst`, `x`, and `y` are arrays of the same size.
 
 `combine!(dst, α, x, β, y)` overwrites `dst` with `α⋅x + β⋅y` and returns
 `dst`. Arguments `α` and `β` are real scalars while `dst`, `x`, and `y` are
