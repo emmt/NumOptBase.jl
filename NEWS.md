@@ -8,6 +8,9 @@
 - The type `T` of the value returned by `norm1`, `norm2`, `norminf`, and
   `inner` may be specified as a leading argument of these functions.
 
+- `combine!(dst, x, ±, y)` with `±` being either `+` or `-`
+   can be used to do `dst[i] = x[i] ± y[i]` for all indices `i`.
+
 ## Version 0.2.1
 
 - Extend `update!` so that `update!(x, β, y, z)` returns `x` overwritten with

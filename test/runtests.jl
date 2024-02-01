@@ -300,6 +300,16 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
                 @test copyto!(tmp, res) ≈ (@. α*x_ref + β*y_ref)
             end
         end
+        @testset "combine! (±)" begin
+            let res = @inferred combine!(z, x, +, y)
+                @test res === z
+                @test copyto!(tmp, res) ≈ (@. x_ref + y_ref)
+            end
+            let res = @inferred combine!(z, x, -, y)
+                @test res === z
+                @test copyto!(tmp, res) ≈ (@. x_ref - y_ref)
+            end
+        end
     end
 
     @testset "Array Operators ($A{$T,$(length(dims))})" for A in array_types, T ∈ floats

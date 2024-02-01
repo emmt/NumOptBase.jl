@@ -1,9 +1,3 @@
-# The search direction may be negated, this is indicated by argument `pm` which
-# is either a `+` or a `-`.
-const Plus = typeof(+)
-const Minus = typeof(-)
-const PlusOrMinus = Union{Plus,Minus}
-
 """
     NumOptBase.is_bounded_below(b) -> bool
 

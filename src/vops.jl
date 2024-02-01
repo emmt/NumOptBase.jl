@@ -326,6 +326,28 @@ function combine!(::Type{E},
 end
 
 """
+    NumOptBase.combine!([E,] dst, x, ±, y) -> dst
+
+overwrites destination `dst` with `x ± y` and returns `dst`. This is a shortcut
+for:
+
+    NumOptBase.combine!([E,] dst, 1, x, ±1, y) -> dst
+
+Optional argument `E` specifies which *engine* to use for the computations. If
+unspecified, `E = NumOptBase.engine(dst, x, y)` is assumed.
+
+"""
+function combine!(dst::AbstractArray{T,N}, x::AbstractArray{T,N},
+                  pm::PlusOrMinus, y::AbstractArray{T,N}) where {T,N}
+    return combine!(dst, 1, x, pm(1), y)
+end
+
+function combine!(::Type{E}, dst::AbstractArray{T,N}, x::AbstractArray{T,N},
+                  pm::PlusOrMinus, y::AbstractArray{T,N}) where {T,N,E<:Engine}
+    return combine!(E, dst, 1, x, pm(1), y)
+end
+
+"""
     NumOptBase.inner([T,] [E,] [w,] x, y)
 
 yields the inner product of `x` and `y` computed as expected by numerical
