@@ -70,15 +70,6 @@ end
 # Effectively copy `src` into `dst`. NOTE: `dst !== src` and `axes(dst) ==
 # axes(src)` both hold when this private method is called.
 unsafe_copy!(dst::AbstractArray, src::AbstractArray) = copyto!(dst, src)
-unsafe_copy!(dst::DenseArray{T,N}, src::DenseArray{T,N}) where {T,N} = begin
-    if isbitstype(T)
-        nbytes = sizeof(T)*length(dst)
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), dst, src, nbytes)
-    else
-        copyto!(dst, src)
-    end
-    return dst
-end
 
 """
     NumOptBase.zerofill!(dst) -> dst
