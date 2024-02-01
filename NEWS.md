@@ -11,6 +11,10 @@
 - `combine!(dst, x, ±, y)` with `±` being either `+` or `-`
    can be used to do `dst[i] = x[i] ± y[i]` for all indices `i`.
 
+- `LinearAlgebra.lmul!` extended so that `lmul!(dst, Diag(w), x)` and
+   `lmul!(dst, Id, x)` work as expected (i.e. respectively `multiply!(dst, w, x)`
+   and `NumOptBase.copy!(dst, x)`).
+
 ## Version 0.2.1
 
 - Extend `update!` so that `update!(x, β, y, z)` returns `x` overwritten with

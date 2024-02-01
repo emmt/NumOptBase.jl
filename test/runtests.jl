@@ -314,6 +314,7 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
 
     @testset "Array Operators ($A{$T,$(length(dims))})" for A in array_types, T ∈ floats
         Diag = NumOptBase.Diag
+        Id = NumOptBase.Id
         dims = (2,3,4)
         N = length(dims)
         w = convert(A, rand(T, dims))
@@ -341,6 +342,9 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
             @test diag(A) ≈ diag(D)
             @test eltype(diag(A)) === Float64
         end
+        @test lmul!(z, D, x) == apply!(z, D, x)
+        @test apply!(z, Id, x) == x
+        @test lmul!(z, Id, x) == apply!(z, Id, x)
     end
 
     dims = (3,4)
