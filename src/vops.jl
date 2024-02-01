@@ -320,14 +320,16 @@ function combine!(::Type{E},
 end
 
 """
-    NumOptBase.inner([E,] [w,] x, y)
+    NumOptBase.inner([T,] [E,] [w,] x, y)
 
 yields the inner product of `x` and `y` computed as expected by numerical
 optimization methods. If optional argument `w` is specified, `Σᵢ wᵢ⋅xᵢ⋅yᵢ` is
 returned.
 
-Optional argument `E` specifies which *engine* to use for the computations. If
-unspecified, `E = NumOptBase.engine([w,] x, y)` is assumed.
+Optional arguments `T` and `E` can be given in any order. Optional argument `T`
+specifies the type of the result. Optional argument `E` specifies which
+*engine* to use for the computations. If unspecified, `E =
+NumOptBase.engine([w,] x, y)` is assumed.
 
 """
 inner(x::AbstractArray, y::AbstractArray) = inner(engine(x, y), x, y)
@@ -402,13 +404,15 @@ end
 end
 
 """
-    NumOptBase.norm1([E,] x)
+    NumOptBase.norm1([T,] [E,] x)
 
 yields the ℓ₁ norm of `x` considered as a real-valued *vector* (i.e, as if `x`
 has been flattened).
 
-If `x` is an array, optional argument `E` specifies which *engine* to use for
-the computations. If unspecified, `E = NumOptBase.engine(x)` is assumed.
+If `x` is an array, two optional arguments `T` and `E` can be specified in any
+order. Optional argument `T` specifies the type of the result. Optional
+argument `E` specifies which *engine* to use for the computations. If
+unspecified, `E = NumOptBase.engine(x)` is assumed.
 
 """
 norm1(x::Real) = abs(x)
@@ -434,13 +438,15 @@ end
 norm1(::Type{<:Engine}, x::AbstractArray) = mapreduce(norm1, +, x)
 
 """
-    NumOptBase.norm2([E,] x)
+    NumOptBase.norm2([T,] [E,] x)
 
 yields the Euclidean norm of `x` considered as a real-valued *vector* (i.e, as
 if `x` has been flattened).
 
-If `x` is an array, optional argument `E` specifies which *engine* to use for
-the computations. If unspecified, `E = NumOptBase.engine(x)` is assumed.
+If `x` is an array, two optional arguments `T` and `E` can be specified in any
+order. Optional argument `T` specifies the type of the result. Optional
+argument `E` specifies which *engine* to use for the computations. If
+unspecified, `E = NumOptBase.engine(x)` is assumed.
 
 """
 norm2(x::Real) = abs(x)
@@ -470,13 +476,15 @@ end
 norm2(::Type{<:Engine}, x::AbstractArray) = sqrt(mapreduce(abs2, +, x))
 
 """
-    NumOptBase.norminf([E,] x)
+    NumOptBase.norminf([T,] [E,] x)
 
 yields the infinite norm of `x` considered as a real-valued *vector* (i.e, as
 if `x` has been flattened).
 
-If `x` is an array, optional argument `E` specifies which *engine* to use for
-the computations. If unspecified, `E = NumOptBase.engine(x)` is assumed.
+If `x` is an array, two optional arguments `T` and `E` can be specified in any
+order. Optional argument `T` specifies the type of the result. Optional
+argument `E` specifies which *engine* to use for the computations. If
+unspecified, `E = NumOptBase.engine(x)` is assumed.
 
 """
 norminf(x::Real) = abs(x)
@@ -485,3 +493,21 @@ norminf(x::AbstractArray) = norminf(engine(x), x)
 
 # Generic implementation based on `mapreduce`.
 norminf(::Type{<:Engine}, x::AbstractArray) = mapreduce(norminf, max, x)
+
+# Implement floating-point type conversion for norms and inner prodcut.
+for func in (:norm1, :norm2, :norminf)
+    @eval begin
+        $func(::Type{T}, x::AbstractArray) where {T<:Number} =
+            as(T, $func(x))
+        $func(::Type{T}, ::Type{E}, x::AbstractArray) where {T<:Number,E<:Engine} =
+            as(T, $func(E, x))
+        $func(::Type{E}, ::Type{T}, x::AbstractArray) where {T<:Number,E<:Engine} =
+            as(T, $func(E, x))
+    end
+end
+@inline inner(::Type{T}, x::AbstractArray...) where {T<:Number} =
+    as(T, inner(x...))
+@inline inner(::Type{T}, ::Type{E}, x::AbstractArray...) where {T<:Number,E<:Engine} =
+    as(T, inner(E, x...))
+@inline inner(::Type{E}, ::Type{T}, x::AbstractArray...) where {T<:Number,E<:Engine} =
+    as(T, inner(E, x...))

@@ -113,14 +113,35 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         x = convert(A, x_ref)
         y = convert(A, y_ref)
         z = similar(x)
+        E = NumOptBase.LoopEngine # most basic engine
+        F = (real(T) === Float64 ? Float32 : Float64) # other floating-point type
+        rtol = 2eps(Float32)
         @testset "norm1" begin
             let xᵢ = first(x_ref), res = @inferred norm1(xᵢ)
                 @test typeof(res) === real(T)
                 @test res ≈ Generic.norm1(xᵢ)
             end
-            let res = @inferred norm1(x)
-                @test typeof(res) === real(T)
-                @test res ≈ Generic.norm1(x_ref)
+            let res_ref = Generic.norm1(x_ref)
+                let res = @inferred norm1(x)
+                    @test typeof(res) === real(T)
+                    @test res ≈ res_ref
+                end
+                let res = @inferred norm1(E, x)
+                    @test typeof(res) === real(T)
+                    @test res ≈ res_ref
+                end
+                let res = @inferred norm1(F, x)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
+                let res = @inferred norm1(F, E, x)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
+                let res = @inferred norm1(E, F, x)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
             end
         end
         @testset "norm2" begin
@@ -128,9 +149,27 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
                 @test typeof(res) === real(T)
                 @test res ≈ Generic.norm2(xᵢ)
             end
-            let res = @inferred norm2(x)
-                @test typeof(res) === real(T)
-                @test res ≈ Generic.norm2(x_ref)
+            let res_ref = Generic.norm2(x_ref)
+                let res = @inferred norm2(x)
+                    @test typeof(res) === real(T)
+                    @test res ≈ res_ref
+                end
+                let res = @inferred norm2(E, x)
+                    @test typeof(res) === real(T)
+                    @test res ≈ res_ref
+                end
+                let res = @inferred norm2(F, x)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
+                let res = @inferred norm2(F, E, x)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
+                let res = @inferred norm2(E, F, x)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
             end
         end
         @testset "norminf" begin
@@ -138,22 +177,76 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
                 @test typeof(res) === real(T)
                 @test res ≈ Generic.norminf(xᵢ)
             end
-            let res = @inferred norminf(x)
-                @test typeof(res) === real(T)
-                @test res ≈ Generic.norminf(x_ref)
+            let res_ref = Generic.norminf(x_ref)
+                let res = @inferred norminf(x)
+                    @test typeof(res) === real(T)
+                    @test res ≈ res_ref
+                end
+                let res = @inferred norminf(E, x)
+                    @test typeof(res) === real(T)
+                    @test res ≈ res_ref
+                end
+                let res = @inferred norminf(F, x)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
+                let res = @inferred norminf(F, E, x)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
+                let res = @inferred norminf(E, F, x)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
             end
         end
         @testset "inner product" begin
-            let res = @inferred inner(x, y)
-                @test typeof(res) === real(T)
-                @test res ≈ Generic.inner(x_ref, y_ref)
+            let res_ref = Generic.inner(x_ref, y_ref)
+                let res = @inferred inner(x, y)
+                    @test typeof(res) === real(T)
+                    @test res ≈ res_ref
+                end
+                let res = @inferred inner(E, x, y)
+                    @test typeof(res) === real(T)
+                    @test res ≈ res_ref
+                end
+                let res = @inferred inner(F, x, y)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
+                let res = @inferred inner(E, F, x, y)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
+                let res = @inferred inner(F, E, x, y)
+                    @test typeof(res) === F
+                    @test res ≈ F(res_ref) rtol=rtol
+                end
             end
             if T <: Complex
                 @test_throws Exception inner(w, x, y)
             else
-                let res = @inferred inner(w, x, y)
-                    @test typeof(res) === real(T)
-                    @test res ≈ Generic.inner(w_ref, x_ref, y_ref)
+                let res_ref = Generic.inner(w_ref, x_ref, y_ref)
+                    let res = @inferred inner(w, x, y)
+                        @test typeof(res) === real(T)
+                        @test res ≈ res_ref
+                    end
+                    let res = @inferred inner(E, w, x, y)
+                        @test typeof(res) === real(T)
+                        @test res ≈ res_ref
+                    end
+                    let res = @inferred inner(F, w, x, y)
+                        @test typeof(res) === F
+                        @test res ≈ F(res_ref) rtol=rtol
+                    end
+                    let res = @inferred inner(E, F, w, x, y)
+                        @test typeof(res) === F
+                        @test res ≈ F(res_ref) rtol=rtol
+                    end
+                    let res = @inferred inner(F, E, w, x, y)
+                        @test typeof(res) === F
+                        @test res ≈ F(res_ref) rtol=rtol
+                    end
                 end
             end
         end

@@ -5,6 +5,9 @@
 - In `NumOptBase.convert_multiplier(α, A)`, the scalar `α` may be any `Number`
   (not just a `Real`).
 
+- The type `T` of the value returned by `norm1`, `norm2`, `norminf`, and
+  `inner` may be specified as a leading argument of these functions.
+
 ## Version 0.2.1
 
 - Extend `update!` so that `update!(x, β, y, z)` returns `x` overwritten with
