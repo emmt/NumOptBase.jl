@@ -52,27 +52,30 @@ LinearAlgebra.lmul!(dst::AbstractArray, A::Union{Diag,Identity}, b::AbstractArra
     apply!(dst, A, b)
 
 """
-    NumOptBase.copy!(dst, x) -> dst
+    NumOptBase.copy!(dst, src) -> dst
 
-copies `x` into `dst` and returns `dst`.
+copies `src` into `dst` and returns `dst`. Arguments must have the same `axes`,
+unlike `Base.copy!` which only requires this for multi-dimensional arrays and
+resizes `dst` if needed when `src` and `dst` are vectors.
 
 """
-function copy!(dst::AbstractArray, x::AbstractArray)
-    if dst !== x
-        @assert_same_axes dst x
-        unsafe_copy!(dst, x)
+function copy!(dst::AbstractArray, src::AbstractArray)
+    if dst !== src
+        @assert_same_axes dst src
+        unsafe_copy!(dst, src)
     end
     return dst
 end
 
-# NOTE: dst !== x and axes(dst) == axes(x) must hold
-unsafe_copy!(dst::AbstractArray, x::AbstractArray) = copyto!(dst, x)
-unsafe_copy!(dst::DenseArray{T,N}, x::DenseArray{T,N}) where {T,N} = begin
+# Effectively copy `src` into `dst`. NOTE: `dst !== src` and `axes(dst) ==
+# axes(src)` both hold when this private method is called.
+unsafe_copy!(dst::AbstractArray, src::AbstractArray) = copyto!(dst, src)
+unsafe_copy!(dst::DenseArray{T,N}, src::DenseArray{T,N}) where {T,N} = begin
     if isbitstype(T)
         nbytes = sizeof(T)*length(dst)
-        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), dst, x, nbytes)
+        ccall(:memcpy, Ptr{Cvoid}, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), dst, src, nbytes)
     else
-        copyto!(dst, x)
+        copyto!(dst, src)
     end
     return dst
 end

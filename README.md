@@ -52,7 +52,7 @@ follows) to operate on *variables* and which either require no additional
 significant storage or store their result in an output array provided by the
 caller. In that way, the storage requirements can be strictly controlled. All
 these *public* methods are exported except `NumOptBase.copy!` which exists in
-Julia base but with a different semantic.
+Julia base but with a slightly different semantic regarding vectors.
 
 
 ### Norms
