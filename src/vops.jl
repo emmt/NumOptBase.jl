@@ -77,9 +77,8 @@ unsafe_copy!(dst::AbstractArray, src::AbstractArray) = copyto!(dst, src)
 zero-fill `dst` and returns it.
 
 """
-zerofill!(dst::AbstractArray{T}) where {T} = fill!(dst, zero(T))
-function zerofill!(dst::DenseArray{T}) where {T}
-    if isbitstype(T)
+function zerofill!(dst::AbstractArray{T}) where {T}
+    if dst isa DenseArray && isbitstype(T)
         nbytes = sizeof(T)*length(dst)
         ccall(:memset, Ptr{Cvoid}, (Ptr{Cvoid}, Cint, Csize_t), dst, 0, nbytes)
     else
