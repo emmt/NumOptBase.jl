@@ -40,7 +40,7 @@ end
 function apply!(y::AbstractArray{T,N}, ::Identity, x::AbstractArray{T,N}) where {T,N}
     if y !== x
         @assert_same_axes x y
-        copyto!(y, x)
+        unsafe_copy!(y, x)
     end
     return y
 end

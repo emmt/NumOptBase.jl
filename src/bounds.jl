@@ -73,7 +73,7 @@ function project_variables!(::Type{E},
     elseif above
         unsafe_project_variables!(E, dst, x, nothing, Ω.upper)
     elseif dst !== x
-        copyto!(dst, x)
+        unsafe_copy!(dst, x)
     end
     return dst
 end
@@ -120,7 +120,7 @@ function project_direction!(::Type{E},
     elseif above
         unsafe_project_direction!(E, dst, x, pm, d, nothing, Ω.upper)
     elseif dst !== d
-        copyto!(dst, d)
+        unsafe_copy!(dst, d)
     end
     return dst
 end

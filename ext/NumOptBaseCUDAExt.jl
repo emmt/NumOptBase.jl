@@ -110,7 +110,7 @@ function gpu_config(fun::CuFunction, len::Int)
     return threads, blocks
 end
 
-unsafe_copy!(dst::CuArray, x::CuArray) = copyto!(dst, x)
+unsafe_copy!(dst::CuArray, x::CuArray) = unsafe_copy!(dst, x)
 zerofill!(dst::CuArray) = fill!(dst, zero(eltype(dst)))
 
 # The "device" version of a given method takes array arguments of type

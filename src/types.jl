@@ -210,7 +210,7 @@ function BoundedSet{T,N}(lower, upper) where {T,N}
     to_bound(::Type{T}, ::Val{N}, B::Bound{T,N}) where {T,N} = B
     to_bound(::Type{T}, ::Val{N}, B::Number) where {T,N} = as(T, B)
     to_bound(::Type{T}, ::Val{N}, B::AbstractArray{<:Any,N}) where {T,N} =
-        copyto!(similar(B, T), B)
+        unsafe_copy!(similar(B, T), B)
     @noinline to_bound(::Type{T}, ::Val{N}, B) where {T,N} =
         throw(ArgumentError(
             "cannot convert argument of type $(typeof(B)) into a bound of type Bound{$T,$N}"))
