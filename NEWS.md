@@ -1,5 +1,9 @@
 # User visible changes in `NumOptBase`
 
+## Version 0.2.3
+
+- Fallback `zerofill!(A)` is simply `fill!(A, zero(eltype(A)))`.
+
 ## Version 0.2.2
 
 - In `NumOptBase.convert_multiplier(α, A)`, the scalar `α` may be any `Number`

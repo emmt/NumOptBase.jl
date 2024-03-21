@@ -84,15 +84,7 @@ zero-fill `A` and returns it. The fallback implementation simply calls
 `fill!(A, zero(eltype(A)))`.
 
 """
-function zerofill!(A::AbstractArray{T}) where {T}
-    if A isa DenseArray && isbitstype(T)
-        nbytes = sizeof(T)*length(A)
-        ccall(:memset, Ptr{Cvoid}, (Ptr{Cvoid}, Cint, Csize_t), A, 0, nbytes)
-    else
-        fill!(A, zero(T))
-    end
-    return A
-end
+zerofill!(A::AbstractArray{T}) where {T} = fill!(A, zero(T))
 
 """
     NumOptBase.scale!([E,] dst, α, x) -> dst
