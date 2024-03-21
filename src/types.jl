@@ -202,31 +202,6 @@ struct BoundedSet{T,N,L<:Bound{T,N},U<:Bound{T,N}}
     end
 end
 
-function BoundedSet{T,N}(lower::L, upper::U) where {T,N,L<:Bound{T,N},U<:Bound{T,N}}
-    return BoundedSet{T,N,L,U}(lower, upper)
-end
-
-function BoundedSet{T,N}(lower, upper) where {T,N}
-    to_bound(::Type{T}, ::Val{N}, B::Bound{T,N}) where {T,N} = B
-    to_bound(::Type{T}, ::Val{N}, B::Number) where {T,N} = as(T, B)
-    to_bound(::Type{T}, ::Val{N}, B::AbstractArray{<:Any,N}) where {T,N} =
-        unsafe_copy!(similar(B, T), B)
-    @noinline to_bound(::Type{T}, ::Val{N}, B) where {T,N} =
-        throw(ArgumentError(
-            "cannot convert argument of type $(typeof(B)) into a bound of type Bound{$T,$N}"))
-    return BoundedSet{T,N}(to_bound(T, Val(N), lower),
-                           to_bound(T, Val(N), upper))
-end
-
-BoundedSet{T}(Ω::BoundedSet{T,N}) where {T,N} = Ω
-BoundedSet{T}(Ω::BoundedSet{<:Any,N}) where {T,N} = BoundedSet{T,N}(Ω)
-
-BoundedSet{T,N}(Ω::BoundedSet{T,N}) where {T,N} = Ω
-BoundedSet{T,N}(Ω::BoundedSet) where {T,N} = BoundedSet{T,N}(Ω.lower, Ω.upper)
-
-Base.convert(::Type{W}, Ω::W) where {W<:BoundedSet} = Ω
-Base.convert(::Type{W}, Ω::BoundedSet) where {W<:BoundedSet} = W(Ω)
-
 """
     P = Projector(Ω)
 
@@ -248,6 +223,3 @@ applicable for the variables `x` and for objects like `Ω`.
 struct Projector{T}
     Ω::T
 end
-(P::Projector)(x::AbstractArray) = P(similar(x), x)
-(P::Projector)(dst::AbstractArray, src::AbstractArray) =
-    project_variables!(dst, src, P.Ω)
