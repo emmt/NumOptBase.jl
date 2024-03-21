@@ -67,31 +67,38 @@ function copy!(dst::AbstractArray, src::AbstractArray)
     return dst
 end
 
-# Effectively copy `src` into `dst`. NOTE: `dst !== src` and `axes(dst) ==
-# axes(src)` both hold when this private method is called.
+"""
+    unsafe_copy!(dst, src)
+
+effectively copy `src` into `dst`. `dst !== src` and `axes(dst) == axes(src)`
+both hold when this method is called. The fallback implementation simply calls
+`copyto!(dst, src)`.
+
+"""
 unsafe_copy!(dst::AbstractArray, src::AbstractArray) = copyto!(dst, src)
 
 """
-    NumOptBase.zerofill!(dst) -> dst
+    NumOptBase.zerofill!(A) -> A
 
-zero-fill `dst` and returns it.
+zero-fill `A` and returns it. The fallback implementation simply calls
+`fill!(A, zero(eltype(A)))`.
 
 """
-function zerofill!(dst::AbstractArray{T}) where {T}
-    if dst isa DenseArray && isbitstype(T)
-        nbytes = sizeof(T)*length(dst)
-        ccall(:memset, Ptr{Cvoid}, (Ptr{Cvoid}, Cint, Csize_t), dst, 0, nbytes)
+function zerofill!(A::AbstractArray{T}) where {T}
+    if A isa DenseArray && isbitstype(T)
+        nbytes = sizeof(T)*length(A)
+        ccall(:memset, Ptr{Cvoid}, (Ptr{Cvoid}, Cint, Csize_t), A, 0, nbytes)
     else
-        fill!(dst, zero(T))
+        fill!(A, zero(T))
     end
-    return dst
+    return A
 end
 
 """
     NumOptBase.scale!([E,] dst, α, x) -> dst
 
 overwrites destination `dst` with `α⋅x` and returns `dst`. If `iszero(α)`
-holds, zero-fill `dst` whatever the values in `x`.
+holds, `dst` is zero-filled whatever the values in `x`.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x)` is assumed.
@@ -122,8 +129,8 @@ end
     NumOptBase.scale!([E,] α, x) -> x
     NumOptBase.scale!([E,] x, α) -> x
 
-overwrites `x` with `α⋅x` and returns `x`. If `iszero(α)` holds, zero-fill `x`
-whatever its contents.
+overwrites `x` with `α⋅x` and returns `x`. If `iszero(α)` holds, `x` is
+zero-filled whatever its contents.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(x)` is assumed.
@@ -147,7 +154,8 @@ end
     NumOptBase.update!([E,] dst, α, x) -> dst
 
 overwrites destination `dst` with `dst + α⋅x` and returns `dst`. This is an
-optimized version of `NumOptBase.combine!(dst,1,dst,α,x)`.
+optimized version of `NumOptBase.combine!(dst,1,dst,α,x)`. If `iszero(α)`
+holds, `dst` is left unchanged whatever the values of `x`.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x)` is assumed.
@@ -177,7 +185,8 @@ end
     NumOptBase.update!([E,] dst, α, x, y) -> dst
 
 overwrites destination `dst` with `dst + α⋅x⋅y` performed element-wise and
-returns `dst`.
+returns `dst`. If `iszero(α)` holds, `dst` is left unchanged whatever the
+values of `x` and `y`.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x)` is assumed.
@@ -371,13 +380,13 @@ inner(x::Complex, y::Complex) = real(x)*real(y) + imag(x)*imag(y)
 inner(w::Real, x::Real, y::Real) = w*x*y
 
 """
-    NumOptBase.unsafe_inner!(E, [w,] x, y)
+    NumOptBase.unsafe_inner(E, [w,] x, y)
 
-executes the task of [`NumOptBase.inner!`](@ref) assuming without checking that
+executes the task of [`NumOptBase.inner`](@ref) assuming without checking that
 array arguments have the same axes. This method is thus *unsafe* and shall not
 be directly called but it may be extended for specific array types. By default,
 it uses SIMD vectorization for strided arrays and calls `mapreduce` for other
-arrays. Argument `E` specifies which *engine* to be use for the computations.
+arrays. Argument `E` specifies which *engine* to use for the computations.
 
 """ unsafe_inner!
 
@@ -424,7 +433,7 @@ end
 """
     NumOptBase.norm1([T,] [E,] x)
 
-yields the ℓ₁ norm of `x` considered as a real-valued *vector* (i.e, as if `x`
+yields the ℓ₁ norm of `x` considered as a real-valued *vector* (i.e., as if `x`
 has been flattened).
 
 If `x` is an array, two optional arguments `T` and `E` can be specified in any
@@ -458,7 +467,7 @@ norm1(::Type{<:Engine}, x::AbstractArray) = mapreduce(norm1, +, x)
 """
     NumOptBase.norm2([T,] [E,] x)
 
-yields the Euclidean norm of `x` considered as a real-valued *vector* (i.e, as
+yields the Euclidean norm of `x` considered as a real-valued *vector* (i.e., as
 if `x` has been flattened).
 
 If `x` is an array, two optional arguments `T` and `E` can be specified in any
@@ -496,7 +505,7 @@ norm2(::Type{<:Engine}, x::AbstractArray) = sqrt(mapreduce(abs2, +, x))
 """
     NumOptBase.norminf([T,] [E,] x)
 
-yields the infinite norm of `x` considered as a real-valued *vector* (i.e, as
+yields the infinite norm of `x` considered as a real-valued *vector* (i.e., as
 if `x` has been flattened).
 
 If `x` is an array, two optional arguments `T` and `E` can be specified in any

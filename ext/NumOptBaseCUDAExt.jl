@@ -252,7 +252,7 @@ function unsafe_inner(::Type{<:CudaEngine},
                       x::CuArray{T,N},
                       y::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
     #return mapreduce(inner, +, x, y; init=inner(zero(R),zero(R)))
-    return flatten(x)'*flatten(y) # NOTE: this is a faster than mapreduce
+    return flatten(x)'*flatten(y) # NOTE: this is faster than mapreduce
 end
 
 function unsafe_inner(::Type{<:CudaEngine},

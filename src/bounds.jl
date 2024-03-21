@@ -225,6 +225,7 @@ See [`linesearch_limits`](@ref) for details.
 
 """
 linesearch_stepmin
+
 """
     linesearch_stepmax([E,] x₀, ±, d, Ω) -> αₘₐₓ
 

@@ -56,8 +56,8 @@ Numerical engines allows different implementations to co-exist in a Julia
 session. The caller of a `NumOptBase` methods may choose a specific engine,
 otherwise, a suitable engine is chosen based on the type of the arguments.
 
-Implementation must be passed by type because they are all abstract types to
-allow for hierarchy.
+Implementation must be passed by type because engine types are all abstract
+types to allow for hierarchy.
 
 Explicit loops:
 
