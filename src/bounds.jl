@@ -9,7 +9,7 @@ all be equal to `-∞`.
 is_bounded_below(b::Nothing) = false
 is_bounded_below(b::Number) = b > typemin(b)
 is_bounded_below(b::AbstractArray) = true
-is_bounded_below(b::AbstractUniformArray) = is_bounded_below(StructuredArrays.getval(b))
+is_bounded_below(b::AbstractUniformArray) = is_bounded_below(StructuredArrays.value(b))
 
 """
     NumOptBase.is_bounded_above(b) -> bool
@@ -22,7 +22,7 @@ all be equal to `+∞`.
 is_bounded_above(b::Nothing) = false
 is_bounded_above(b::Number) = b < typemax(b)
 is_bounded_above(b::AbstractArray) = true
-is_bounded_above(b::AbstractUniformArray) = is_bounded_above(StructuredArrays.getval(b))
+is_bounded_above(b::AbstractUniformArray) = is_bounded_above(StructuredArrays.value(b))
 
 """
     NumOptBase.is_bounded(Ω::NumOptBase.BoundedSet) -> below, above
