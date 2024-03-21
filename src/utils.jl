@@ -15,29 +15,35 @@ if AbstractArray !== SimdArray && AbstractArray !== TurboArray
 end
 
 """
-    NumOptBase.@vectorize optim for ...
+    NumOptBase.@vectorize opt for ...
 
-compiles the `for ...` loop according to optimization `optim`, one of:
+compiles the `for ...` loop according to optimization `opt`, one of:
 
-    :none     # no optimization, does bound checking
-    :inbounds # optimize with @inbounds
-    :simd     # optimize with @inbounds @simd
-    :avx      # optimize with @avx (requires LoopVectorization)
-    :turbo    # optimize with @turbo (requires LoopVectorization)
+- `:none` to perform bounds checking and no optimization;
+
+- `:inbounds` to optimize with `@inbounds`;
+
+- `:simd` to optimize with `@inbounds @simd`;
+
+- `:avx` to optimize with `@inbounds @avx` (requires `LoopVectorization`);
+
+- `:turbo` to optimize with `@inbounds @turbo` (requires `LoopVectorization`).
 
 """
-macro vectorize(optim::Symbol, loop::Expr)
-    loop.head === :for || error("expecting a `for` loop argument to `@vectorize`")
-    esc(_vectorize(optim, loop))
+macro vectorize(opt, expr)
+    (expr isa Expr && expr.head === :for) || error("expecting a `for` loop after `@vectorize opt ...`")
+    esc(_vectorize(opt, expr))
 end
 
-_vectorize(optim::Symbol, loop::Expr) =
-    optim === :none     ? loop :
-    optim === :inbounds ? :(@inbounds $loop) :
-    optim === :simd     ? :(@inbounds @simd $loop) :
-    optim === :avx      ? :(@avx $loop) :
-    optim === :turbo    ? :(@turbo $loop) :
-    error("unknown loop optimizer `:$optim`")
+_vectorize(opt::QuoteNode, expr::Expr) = _vectorize(opt.value, expr)
+_vectorize(opt::Any, expr::Expr) = error("`opt` must be a symbol in `@vectorize opt for ...`")
+_vectorize(opt::Symbol, expr::Expr) =
+    opt === :none     ?                     expr  :
+    opt === :inbounds ? :(@inbounds        $expr) :
+    opt === :simd     ? :(@inbounds @simd  $expr) :
+    opt === :avx      ? :(@inbounds @avx   $expr) :
+    opt === :turbo    ? :(@inbounds @turbo $expr) :
+    error("unknown loop optimizer `:$opt`")
 
 """
     NumOptBase.check_axes(args...)
