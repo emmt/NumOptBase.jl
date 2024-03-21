@@ -14,9 +14,8 @@ of arrays used to store the variables of the problem. Package
 [`ConjugateGradient`](https://github.com/emmt/ConjugateGradient.jl) is such an
 example. The methods of `NumOptBase` are thus intended to be extended by other
 packages to apply numerical optimization methods to their own variables (that
-is their own array types). For instance, dealing with
-[`GPUArrays`](https://github.com/JuliaGPU/GPUArrays.jl) in `NumOptBase` is
-currently under development.
+is their own array types). For instance, `NumOptBase` provides optimized
+methods for [`CUDA` arrays](https://github.com/JuliaGPU/CUDA.jl) .
 
 
 ## Variables in optimization methods
@@ -32,7 +31,7 @@ It is assumed by this package that the variables `x` are stored in Julia
 arrays. Depending on the problem, these arrays may be multidimensional but are
 treated as real-valued *vectors* by the numerical optimization methods. In that
 respect, complex numbers are considered as pairs of reals. For efficiency, all
-entries of the arrays storing variables must have the same floating-point type.
+entries of the arrays storing variables shall have the same floating-point type.
 
 For now, quantities with units (such as those provided by the
 [`Unitful`](https://github.com/PainterQubits/Unitful.jl) package) are not
@@ -98,16 +97,17 @@ must all be real-valued arrays.
 `scale!(dst, α, x)` returns `dst` overwritten with `α⋅x` performed
 element-wise. Arguments `dst` and `x` are arrays of the same size while `α` is
 a scalar. If `iszero(α)` holds, `dst` is zero-filled whatever the values in
-`x`.
+`x`. For in-place scaling of `x` by `α`, just call `scale!(α, x)` or `scale!(x, α)`.
 
 `update!(x, β, y)` returns `x` overwritten with `x + β⋅y` performed
 element-wise. Arguments `x` and `y` are arrays of the same size while `β` is a
-scalar. The `update!` method may be seen as a shortcut for `combine!(x, 1, x,
-β, y)`.
+scalar. If `iszero(β)` holds, `x` is left unchanged whatever the values in `y`.
+The `update!` method may be seen as a shortcut for `combine!(x, 1, x, β, y)`.
 
 `update!(x, β, y, z)` returns `x` overwritten with `x + β⋅y⋅z` performed
 element-wise. Arguments `x`, `y`, and `z` are arrays of the same size while `β`
-is a scalar.
+is a scalar. If `iszero(β)` holds, `x` is left unchanged whatever the values in
+`y` and `z`.
 
 `multiply!(dst, x, y)` returns `dst` overwritten with the element-wise
 multiplication (also known as *Hadamard product*) of `x` by `y`. Arguments
@@ -115,7 +115,9 @@ multiplication (also known as *Hadamard product*) of `x` by `y`. Arguments
 
 `combine!(dst, α, x, β, y)` overwrites `dst` with `α⋅x + β⋅y` and returns
 `dst`. Arguments `α` and `β` are real scalars while `dst`, `x`, and `y` are
-arrays of the same size.
+arrays of the same size. If `iszero(α)` holds, the result does not depend on
+the values of `x`. Similarly, if `iszero(β)` holds, the result does not depend
+on the values of `y`.
 
 
 ### Apply mappings
