@@ -181,12 +181,12 @@ returns `dst`. If `iszero(α)` holds, `dst` is left unchanged whatever the
 values of `x` and `y`.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
-unspecified, `E = NumOptBase.engine(dst, x)` is assumed.
+unspecified, `E = NumOptBase.engine(dst, x, y)` is assumed.
 
 """
 function update!(dst::AbstractArray{T,N},
                  α::Real, x::AbstractArray{T,N}, y::AbstractArray{T,N}) where {T,N}
-    return update!(engine(dst, x), dst, α, x, y)
+    return update!(engine(dst, x, y), dst, α, x, y)
 end
 
 xpyz(x, y, z) = muladd(y, z, x) # x + y*z

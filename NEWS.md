@@ -4,6 +4,8 @@
 
 - Fallback `zerofill!(A)` is simply `fill!(A, zero(eltype(A)))`.
 
+- `update!(dst,α,x,y)` uses `engine(dst,x,y)` to determine engine.
+
 ## Version 0.2.2
 
 - In `NumOptBase.convert_multiplier(α, A)`, the scalar `α` may be any `Number`
