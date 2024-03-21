@@ -195,6 +195,9 @@ be alleviated in a high level interface:
   bound) are considered as unlimited bounds even though all values of a lower
   (resp. upper) bound specified as an array may be `-∞` (resp. `+∞`).
 
+A number of standard methods are applicable to a bounded set `Ω`:
+- `isempty(Ω)` yields whether the `Ω` is empty, that is infeasible.
+- `x ∈ Ω` yields whether variables `x` belongs to `Ω`.
 
 ### Projection on the feasible set
 

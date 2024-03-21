@@ -184,6 +184,12 @@ yields an object `Ω` representing the set of variables bounded below by `lower`
 and bounded above by `upper`. Type parameter `T` and `N` are the floating-point
 type for computations and the number of dimensions of the variables.
 
+Call `isempty(Ω)` to check whether `Ω` is not feasible. A true result is
+returned if `lower .≤ upper` does not hold evrywhere, in particular any `NaN`s
+in the bound values will result in an infeasible set.
+
+Call `x ∈ Ω` to check whether `x` belongs to `Ω`.
+
 Converting a bounded set `Ω` to other type parameters `T` and/or `N` can be
 done by `convert` or by:
 

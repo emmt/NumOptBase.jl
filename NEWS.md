@@ -2,6 +2,10 @@
 
 ## Version 0.2.3
 
+- `isempty(Ω)` yields whether the bounded set `Ω` is empty, that is infeasible.
+
+- `x ∈ Ω` yields whether variables `x` belongs to the bounded set `Ω`.
+
 - Fallback `zerofill!(A)` is simply `fill!(A, zero(eltype(A)))`.
 
 - `update!(dst,α,x,y)` uses `engine(dst,x,y)` to determine engine.

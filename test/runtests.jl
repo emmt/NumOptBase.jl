@@ -369,6 +369,54 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         "(-Inf,0)"             => (-Inf, 0),
     )
 
+    @testset "Simple operations on bounded sets" begin
+        T = Float32
+        x0 = rand((zero(T),one(T)), dims)
+        x1 = x0 .- T(1.1) # x1 < 0 holds somewhere
+        x2 = x0 .+ T(1.1) # x2 > 1 holds somewhere
+        Ω = @inferred BoundedSet{T,N}(nothing, nothing)
+        @test !isempty(Ω)
+        @test x0 ∈ Ω
+        @test x1 ∈ Ω
+        @test x2 ∈ Ω
+        Ω = @inferred BoundedSet{T,N}(zeros(T,dims), nothing)
+        @test !isempty(Ω)
+        @test   x0 ∈ Ω
+        @test !(x1 ∈ Ω)
+        @test   x2 ∈ Ω
+        Ω.lower[2] = NaN
+        @test isempty(Ω)
+        @test !(x0 ∈ Ω)
+        @test !(x1 ∈ Ω)
+        @test !(x2 ∈ Ω)
+        Ω = @inferred BoundedSet{T,N}(nothing, ones(T,dims))
+        @test !isempty(Ω)
+        @test   x0 ∈ Ω
+        @test   x1 ∈ Ω
+        @test !(x2 ∈ Ω)
+        Ω.upper[2] = NaN
+        @test isempty(Ω)
+        @test !(x0 ∈ Ω)
+        @test !(x1 ∈ Ω)
+        @test !(x2 ∈ Ω)
+        Ω = @inferred BoundedSet{T,N}(zeros(T,dims), ones(T,dims))
+        @test !isempty(Ω)
+        @test   x0 ∈ Ω
+        @test !(x1 ∈ Ω)
+        @test !(x2 ∈ Ω)
+        Ω.lower[2] = NaN
+        @test isempty(Ω)
+        @test !(x0 ∈ Ω)
+        @test !(x1 ∈ Ω)
+        @test !(x2 ∈ Ω)
+        Ω.lower[2] = 0 # restore lower bound
+        Ω.upper[2] = NaN
+        @test isempty(Ω)
+        @test !(x0 ∈ Ω)
+        @test !(x1 ∈ Ω)
+        @test !(x2 ∈ Ω)
+    end
+
     @testset "Conversion of bounded sets (Ω = $B)" for B in keys(bounds)
         atol = 0
         rtol = 2eps(Float32)

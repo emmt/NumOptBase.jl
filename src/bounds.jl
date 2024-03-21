@@ -24,6 +24,64 @@ BoundedSet{T,N}(Ω::BoundedSet) where {T,N} = BoundedSet{T,N}(Ω.lower, Ω.upper
 Base.convert(::Type{W}, Ω::W) where {W<:BoundedSet} = Ω
 Base.convert(::Type{W}, Ω::BoundedSet) where {W<:BoundedSet} = W(Ω)
 
+# BoundSet API.
+function Base.isempty(Ω::BoundedSet)
+    below, above = is_bounded(Ω)
+    if below & above
+        # Test that the bounded set is feasible. According to IEEE rules for
+        # comparisons, it will be considered as empty if some bounds are NaN's.
+        return !check_all(≤, Ω.lower, Ω.upper)
+    elseif below
+        return any(isnan, Ω.lower)
+    elseif above
+        return any(isnan, Ω.upper)
+    else
+        # Unbounding sets are never empty.
+        return false
+    end
+end
+
+function check_all(f, lower::AbstractArray, upper::AbstractArray)
+    @assert_same_axes lower upper
+    return unsafe_check_all(f, lower, upper)
+end
+
+function unsafe_check_all(::typeof(≤), lower::AbstractArray, upper::AbstractArray)
+    return mapreduce(≤, &, lower, upper; init=true)
+end
+
+function unsafe_check_all(::typeof(≤), lower::AbstractArray, upper::AbstractUniformArray)
+    return mapreduce(≤, &, lower, upper; init=true)
+end
+
+function unsafe_check_all(::typeof(≤), lower::AbstractUniformArray, upper::AbstractArray)
+    # Swap operands so that the non-uniform array appears first. This is needed
+    # for `mapreduce` to work with GPU arrays.
+    return mapreduce(≥, &, upper, lower; init=true)
+end
+
+function unsafe_check_all(::typeof(≤), lower::AbstractUniformArray, upper::AbstractUniformArray)
+    return value(lower) ≤ value(upper)
+end
+
+function Base.in(x::AbstractArray, Ω::BoundedSet)
+    check_axes(x, only_arrays(Ω.lower, Ω.upper)...)
+    below, above = is_bounded(Ω)
+    if below & above
+        # Test that the bounded set is feasible. According to IEEE rules for
+        # comparisons, it will be considered as empty if some bounds are NaN's.
+        return mapreduce(in_bounds, &, x, Ω.lower, Ω.upper; init=true)
+    elseif below
+        return mapreduce(≥, &, x, Ω.lower; init=true)
+    elseif above
+        return mapreduce(≤, &, x, Ω.upper)
+    else
+        return true
+    end
+end
+
+in_bounds(x::Number, l::Number, u::Number) = ((x ≥ l)&(x ≤ u))
+
 # Projector API.
 (P::Projector)(x::AbstractArray) = P(similar(x), x)
 (P::Projector)(dst::AbstractArray, src::AbstractArray) =
