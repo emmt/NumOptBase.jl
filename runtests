@@ -1,10 +1,10 @@
 #! /usr/bin/bash
 exe=`realpath "$0"`
 dir=`dirname "$exe"`
-for exe in julia-1.{2..9}; do
-    echo "############## $exe"
+for ver in 1.{2..10}; do
+    echo "############## julia-$ver"
     rm -f "$dir/Manifest.toml"
-    $exe --project="$dir" --check-bounds=yes --depwarn=yes --color=yes \
+    julia +$ver --project="$dir" --check-bounds=yes --depwarn=yes --color=yes \
         -e 'using Pkg; Pkg.instantiate(); include("test/runtests.jl")'
     rm -f "$dir/Manifest.toml"
 done
