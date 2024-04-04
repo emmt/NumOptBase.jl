@@ -9,6 +9,9 @@
 - Fix `x ∈ Ω` for`Ω::BoundedSet` to not throw exception and to also check that
   element types match.
 
+- Method `unblocked_variables!` renamed as `updatable_variables!` and fixed to
+  closely follows the logic of the Karush-Kuhn-Tucker (K.K.T.) conditions.
+
 ## Version 0.2.3
 
 - `isempty(Ω)` yields whether the bounded set `Ω` is empty, that is infeasible.

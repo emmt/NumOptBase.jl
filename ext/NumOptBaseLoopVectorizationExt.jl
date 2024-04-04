@@ -21,7 +21,7 @@ if isdefined(Base, :get_extension)
         unsafe_map!,
         unsafe_project_direction!,
         unsafe_project_variables!,
-        unsafe_unblocked_variables!,
+        unsafe_updatable_variables!,
         unsafe_update!
 else
     using ..LoopVectorization
@@ -44,7 +44,7 @@ else
         unsafe_map!,
         unsafe_project_direction!,
         unsafe_project_variables!,
-        unsafe_unblocked_variables!,
+        unsafe_updatable_variables!,
         unsafe_update!
 end
 
@@ -220,7 +220,7 @@ end
             return nothing
         end
 
-        function unsafe_unblocked_variables!(::Type{<:TurboLoopEngine},
+        function unsafe_updatable_variables!(::Type{<:TurboLoopEngine},
                                              dst::TurboArray{B,N},
                                              x::TurboArray{T,N},
                                              pm::PlusOrMinus,

@@ -31,7 +31,7 @@ export
     linesearch_stepmin,
     project_direction!,
     project_variables!,
-    unblocked_variables!
+    updatable_variables!
 
 using TypeUtils, Unitless
 using ArrayTools: @assert_same_axes

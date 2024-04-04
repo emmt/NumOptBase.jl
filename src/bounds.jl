@@ -251,35 +251,35 @@ function project_direction!(::Type{E},
 end
 
 """
-    unblocked_variables!([E,] dst, x, ±, d, Ω) -> dst
+    updatable_variables!([E,] dst, x, ±, d, Ω) -> dst
 
-overwrites destination `dst` with ones where variables in `x` are not blocked
-by the bounds implemented by `Ω` along direction `±d` and zeros elsewhere.
+overwrites destination `dst` with ones where variables in `x` can be updated
+within the bounds implemented by `Ω` along direction `±d` and zeros elsewhere.
 
 For efficiency, it is assumed without checking that `x ∈ Ω` holds.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
-unspecified, `E = NumOptBase.engine(dst, x, d, Ω)` is assumed.
+unspecified, `E = NumOptBase.engine(dst, x, d, Ω...)` is assumed.
 
-It is assumed that `x[i]` is blocked if `d[i] = 0`. Hence, if `±d = -∇f(x)`,
-with `∇f(x)` the gradient of the objective function, the destination is set to
-zero everywhere the Karush-Kuhn-Tucker (K.K.T.) conditions are satisfied for
-the problem:
+It is assumed that `x[i]` is not updatable if `d[i] = 0`. Hence, if `±d =
+-∇f(x)`, with `∇f(x)` the gradient of the objective function, the destination
+is set to zero everywhere the Karush-Kuhn-Tucker (K.K.T.) conditions are
+satisfied for the problem:
 
     minₓ f(x) s.t. x ∈ Ω
 
-This can be used to check for (exact) convergence.
+In other words, `all(izero, dst)` holds for (exact) convergence.
 
 """
-function unblocked_variables!(dst::AbstractArray{<:Real,N},
+function updatable_variables!(dst::AbstractArray{<:Real,N},
                               x::AbstractArray{T,N},
                               pm::PlusOrMinus,
                               d::AbstractArray{T,N},
                               Ω::BoundedSet{T,N}) where {T,N}
-    return unblocked_variables!(engine(dst, x, d, Ω...), dst, x, pm, d, Ω)
+    return updatable_variables!(engine(dst, x, d, Ω...), dst, x, pm, d, Ω)
 end
 
-function unblocked_variables!(::Type{E},
+function updatable_variables!(::Type{E},
                               dst::AbstractArray{<:Real,N},
                               x::AbstractArray{T,N},
                               pm::PlusOrMinus,
@@ -289,11 +289,11 @@ function unblocked_variables!(::Type{E},
     check_axes(x; dest=dst, dir=d, lower=Ω.lower, upper=Ω.upper)
     below, above = is_bounding(Ω)
     if below & above
-        unsafe_unblocked_variables!(E, dst, x, pm, d, Ω.lower, Ω.upper)
+        unsafe_updatable_variables!(E, dst, x, pm, d, Ω.lower, Ω.upper)
     elseif below
-        unsafe_unblocked_variables!(E, dst, x, pm, d, Ω.lower, nothing)
+        unsafe_updatable_variables!(E, dst, x, pm, d, Ω.lower, nothing)
     elseif above
-        unsafe_unblocked_variables!(E, dst, x, pm, d, nothing, Ω.upper)
+        unsafe_updatable_variables!(E, dst, x, pm, d, nothing, Ω.upper)
     else
         fill!(dst, one(eltype(dst)))
     end
@@ -427,7 +427,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
             end
             return nothing
         end
-        function unsafe_unblocked_variables!(::Type{<:$engine},
+        function unsafe_updatable_variables!(::Type{<:$engine},
                                              dst::AbstractArray{B,N},
                                              x::AbstractArray{T,N},
                                              pm::PlusOrMinus,
