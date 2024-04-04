@@ -56,7 +56,7 @@ Base.ndims(::Type{<:BoundedSet{T,N}}) where {T,N} = N
 
 Base.iterate(Ω::BoundedSet, state::Int=1) =
     state == 1 ? (Ω.lower, 2) :
-    state == 2 ? (Ω.lower, 3) : nothing
+    state == 2 ? (Ω.upper, 3) : nothing
 
 Base.first(Ω::BoundedSet) = Ω.lower
 Base.last(Ω::BoundedSet) = Ω.upper
