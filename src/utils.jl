@@ -46,23 +46,76 @@ _vectorize(opt::Symbol, expr::Expr) =
     error("unknown loop optimizer `:$opt`")
 
 """
-    NumOptBase.check_axes(args...)
+    NumOptBase.check_axes(name, arr, ref)
+    NumOptBase.check_axes(name, arr, rngs)
 
-throws a `DimensionMismatch` exception if arguments `args...` are not arrays
-with the same axes.
+throws a `DimensionMismatch` exception if the axes of array `arr` are not
+`rngs` or not the same as those of array `ref`. Argument `name` is used for the
+error message.
 
 """
-check_axes() = nothing
-check_axes(A::AbstractArray) = nothing
-check_axes(A::AbstractArray...) = throw_incompatible_axes()
-@inline check_axes(A::AbstractArray{<:Any,N}, B::AbstractArray{<:Any,N}...) where {N} =
-    check_axes(Bool, axes(A), B...) ? nothing : throw_incompatible_axes()
-@inline check_axes(::Type{Bool}, I, A::AbstractArray) = axes(A) == I
-@inline check_axes(::Type{Bool}, I, A::AbstractArray, B::AbstractArray...) =
-    check_axes(Bool, I, A) && check_axes(Bool, I, B...)
+check_axes(name::AbstractString, arr::AbstractArray, ref::AbstractArray) =
+    check_axes(name, arr, axes(ref))
 
-@noinline throw_incompatible_axes() =
-    throw(DimensionMismatch("arrays have different indices"))
+function check_axes(name::AbstractString, arr::AbstractArray,
+                    rngs::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
+    axes(arr) == rgns || throw(DimensionMismatch(pretty(
+        name, " has incompatible axes, got ", axes(arr), " instead of ", rngs)))
+    nothing
+end
+
+function check_axes(x::AbstractArray;
+                    dest::Union{AbstractArray,Nothing} = nothing,
+                    dir::Union{AbstractArray,Nothing} = nothing,
+                    lower::Union{AbstractArray,Nothing} = nothing,
+                    upper::Union{AbstractArray,Nothing} = nothing,)
+    rngs = axes(x)
+    dest  isa Nothing || check_axes("destination array", dest,    rngs)
+    dir   isa Nothing || check_axes("search direction",  dir,     rngs)
+    lower isa Nothing || check_axes("lower bound",       Ω.lower, rngs)
+    upper isa Nothing || check_axes("upper bound",       Ω.upper, rngs)
+    nothing
+end
+
+"""
+    NumOptBase.pretty_print(io::IO, args...)
+
+prints `args...` to `io` in a pretty form that is useful for error messages.
+This method may be specialized on the type of each of `args...`. The default is
+to call `print`.
+
+"""
+function pretty_print(io::IO, xs...)
+    for x in xs
+        pretty_print(io, x)
+    end
+    nothing
+end
+function pretty_print(io::IO, x::Tuple)
+    n = length(x)
+    print(io, '(')
+    for i in 1:n
+        pretty_print(io, x[i])
+        (i == 1 || i < n) && print(io, ',')
+    end
+    print(io, ')')
+    nothing
+end
+pretty_print(io::IO, x) = print(io::IO, x)
+pretty_print(io::IO, rng::AbstractUnitRange) = print(io, first(rng), ':', last(rng))
+pretty_print(io::IO, rng::OrdinalRange) = print(io, first(rng), ':', step(rng), ':', last(rng))
+
+"""
+    NumOptBase.pretty(args...) -> str
+
+prints `args...` as a human readable string using [`NumOptBase.pretty_print`](@ref).
+
+"""
+function pretty(xs...)
+    buf = IOBuffer()
+    pretty_print(buf, xs...)
+    return String(take!(buf))
+end
 
 """
     NumOptBase.only_arrays(args...) -> tup
