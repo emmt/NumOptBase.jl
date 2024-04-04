@@ -12,6 +12,10 @@
 - Method `unblocked_variables!` renamed as `updatable_variables!` and fixed to
   closely follows the logic of the Karush-Kuhn-Tucker (K.K.T.) conditions.
 
+- The default implementations of `linesearch_limits`, `linesearch_stepmin`, and
+  `linesearch_stepmax` manage to call `mapreduce` to work on any type of arrays
+  (including GPU ones).
+
 ## Version 0.2.3
 
 - `isempty(Ω)` yields whether the bounded set `Ω` is empty, that is infeasible.

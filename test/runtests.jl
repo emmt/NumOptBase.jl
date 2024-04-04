@@ -1,5 +1,12 @@
 using NumOptBase, Test, LinearAlgebra
 
+using NumOptBase:
+    is_bounding_below, is_bounding_above,
+    stepmin_reduce, stepmax_reduce,
+    step_to_bounds, step_from_bounds,
+    step_to_lower_bound, step_from_lower_bound,
+    step_to_upper_bound, step_from_uppe_bound
+
 # Automatically use LoopVectorization if Julia is sufficiently recent. NOTE: It
 # is always possible to manually load LoopVectorization before testing).
 VERSION ≥ v"1.5" && using LoopVectorization
@@ -345,6 +352,109 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         @test lmul!(z, D, x) == apply!(z, D, x)
         @test apply!(z, Id, x) == x
         @test lmul!(z, Id, x) == apply!(z, Id, x)
+    end
+
+    # Utilities for bounds.
+    @testset "is_bounding_below" begin
+        @test !is_bounding_below(nothing)
+        @test  is_bounding_below(1.3)
+        @test  is_bounding_below(typemax(Float32))
+        @test !is_bounding_below(typemin(Float64))
+        @test  is_bounding_below(UniformArray(typemax(Float64), 2, 3, 4))
+        @test !is_bounding_below(UniformArray(typemin(Float32), 2, 3, 4))
+        @test  is_bounding_below(fill(typemin(Float64), 2, 3))
+    end
+    @testset "is_bounding_above" begin
+        @test !is_bounding_above(nothing)
+        @test  is_bounding_above(1.3)
+        @test !is_bounding_above(typemax(Float32))
+        @test  is_bounding_above(typemin(Float64))
+        @test !is_bounding_above(UniformArray(typemax(Float64), 2, 3, 4))
+        @test  is_bounding_above(UniformArray(typemin(Float32), 2, 3, 4))
+        @test  is_bounding_above(fill(typemax(Float64), 2, 3))
+    end
+    @testset "stepmax_reduce" begin
+        # Result shall not depend on order of arguments.
+        @test stepmax_reduce(NaN, 2.0) === 2.0
+        @test stepmax_reduce(1.0, NaN) === 1.0
+        @test stepmax_reduce(NaN, NaN) === NaN
+        @test stepmax_reduce(1.0, 2.0) === 2.0
+        @test stepmax_reduce(2.0, 1.0) === 2.0
+    end
+    @testset "stepmin_reduce" begin
+        # Result shall not depend on order of arguments.
+        @test stepmin_reduce(NaN, 2.0) === 2.0
+        @test stepmin_reduce(1.0, NaN) === 1.0
+        @test stepmin_reduce(NaN, NaN) === NaN
+        @test stepmin_reduce(1.0, 2.0) === 1.0
+        @test stepmin_reduce(2.0, 1.0) === 1.0
+    end
+    @testset "step_to_bounds(±)" begin
+        @test step_to_bounds(     +) === step_to_bounds
+        @test step_to_bounds(     -) === step_from_bounds
+        @test step_to_lower_bound(+) === step_to_lower_bound
+        @test step_to_lower_bound(-) === step_from_lower_bound
+        @test step_to_upper_bound(+) === step_to_upper_bound
+        @test step_to_upper_bound(-) === step_from_upper_bound
+    end
+
+    # The values of x, d, l, and l are chosen to have exact results.
+    x = 1.0
+    @testset "step_to_bounds(x=$x, d=$d, l=$l, u=$u)" for d in (+2.0, 0.0, -2.0),
+        l in (-5.0, -Inf, NaN), u in (9.0, +Inf, NaN)
+        # NaN for a bound in the direction of search is interpreted in the
+        # tests as unbounded, but the bound on the opposite side may be
+        # anything (including NaN) because the result should not depend on it.
+        if d > zero(d)
+            if isnan(u) # test as if unbounded above
+                r = +Inf
+                @test step_to_lower_bound(  x, +,  d, l   ) === r
+                @test step_to_lower_bound(  x,     d, l   ) === r
+                @test step_to_lower_bound(  x, -, -d, l   ) === r
+                @test step_from_lower_bound(x,    -d, l   ) === r
+            else
+                r = u < typemax(u) ? (u - x)/d : +Inf
+                @test step_to_bounds(       x, +,  d, l, u) === r
+                @test step_to_bounds(       x,     d, l, u) === r
+                @test step_to_bounds(       x, -, -d, l, u) === r
+                @test step_from_bounds(     x,    -d, l, u) === r
+                @test step_to_upper_bound(  x, +,  d,    u) === r
+                @test step_to_upper_bound(  x,     d,    u) === r
+                @test step_to_upper_bound(  x, -, -d,    u) === r
+                @test step_from_upper_bound(x,    -d,    u) === r
+            end
+        elseif d < zero(d)
+            if isnan(l) # test as if unbounded below
+                r = +Inf
+                @test step_to_upper_bound(  x, +,  d,    u) === r
+                @test step_to_upper_bound(  x,     d,    u) === r
+                @test step_to_upper_bound(  x, -, -d,    u) === r
+                @test step_from_upper_bound(x,    -d,    u) === r
+            else
+                r = l > typemin(l) ? (l - x)/d : +Inf
+                @test step_to_bounds(       x, +,  d, l, u) === r
+                @test step_to_bounds(       x,     d, l, u) === r
+                @test step_to_bounds(       x, -, -d, l, u) === r
+                @test step_from_bounds(     x,    -d, l, u) === r
+                @test step_to_lower_bound(  x, +,  d, l   ) === r
+                @test step_to_lower_bound(  x,     d, l   ) === r
+                @test step_to_lower_bound(  x, -, -d, l   ) === r
+                @test step_from_lower_bound(x,    -d, l   ) === r
+            end
+        elseif iszero(d)
+            @test isnan(step_to_bounds(       x, +,  d, l, u))
+            @test isnan(step_to_bounds(       x,     d, l, u))
+            @test isnan(step_to_bounds(       x, -,  d, l, u))
+            @test isnan(step_from_bounds(     x,     d, l, u))
+            @test isnan(step_to_lower_bound(  x, +,  d, l   ))
+            @test isnan(step_to_lower_bound(  x,     d, l   ))
+            @test isnan(step_to_lower_bound(  x, -,  d, l   ))
+            @test isnan(step_from_lower_bound(x,     d, l   ))
+            @test isnan(step_to_upper_bound(  x, +,  d,    u))
+            @test isnan(step_to_upper_bound(  x,     d,    u))
+            @test isnan(step_to_upper_bound(  x, -,  d,    u))
+            @test isnan(step_from_upper_bound(x,     d,    u))
+        end
     end
 
     dims = (3,4)

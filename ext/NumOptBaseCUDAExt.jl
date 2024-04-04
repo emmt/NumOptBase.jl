@@ -21,9 +21,6 @@ if isdefined(Base, :get_extension)
         norminf,
         unsafe_copy!,
         unsafe_inner,
-        unsafe_linesearch_limits,
-        unsafe_linesearch_stepmax,
-        unsafe_linesearch_stepmin,
         unsafe_map!,
         unsafe_project_direction!,
         unsafe_project_variables!,
@@ -51,9 +48,6 @@ else
         norminf,
         unsafe_copy!,
         unsafe_inner,
-        unsafe_linesearch_limits,
-        unsafe_linesearch_stepmax,
-        unsafe_linesearch_stepmin,
         unsafe_map!,
         unsafe_project_direction!,
         unsafe_project_variables!,
@@ -349,37 +343,6 @@ function unsafe_updatable_variables!(::Type{<:CudaEngine},
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, x, pm, d, lower, upper; threads, blocks)
     return nothing
-end
-
-# FIXME: The returned value is conservative.
-function unsafe_linesearch_stepmin(::Type{<:CudaEngine},
-                                   x::CuArray{T,N},
-                                   pm::PlusOrMinus,
-                                   d::CuArray{T,N},
-                                   lower::CuBound{T,N},
-                                   upper::CuBound{T,N}) where {T,N}
-    return zero(T)
-end
-
-# FIXME: The returned value is conservative.
-function unsafe_linesearch_stepmax(::Type{<:CudaEngine},
-                                   x::CuArray{T,N},
-                                   pm::PlusOrMinus,
-                                   d::CuArray{T,N},
-                                   lower::CuBound{T,N},
-                                   upper::CuBound{T,N}) where {T,N}
-    return typemax(T)
-end
-
-# FIXME: The returned values are conservative.
-function unsafe_linesearch_limits(::Type{<:CudaEngine},
-                                  x::CuArray{T,N},
-                                  pm::PlusOrMinus,
-                                  d::CuArray{T,N},
-                                  lower::CuBound{T,N},
-                                  upper::CuBound{T,N}) where {T,N}
-    return (unsafe_linesearch_stepmin(CudaEngine, x, pm, d, lower, upper),
-            unsafe_linesearch_stepmax(CudaEngine, x, pm, d, lower, upper))
 end
 
 end # module

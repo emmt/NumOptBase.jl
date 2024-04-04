@@ -118,6 +118,32 @@ function pretty(xs...)
 end
 
 """
+    NumOptBase.choice(t1::Bool, x1::T, t2::Bool, x2::T, ..., tn::Bool, xn::T, y::T)
+
+yields `x1` if `t1` is true, otherwise `x2` if `t2` is true, and so on, and
+finally `y` if none of the test values is true. This is equivalent to:
+
+    t1 ? x1 :
+    t2 ? x2 :
+    ...
+    tn ? xn : y
+
+except that all expressions are computed. This is a generalization of the
+`ifelse` function. The reason to use such a function rather than the `? :` syntax
+is the possibility to eliminate branches in optimized code.
+
+"""
+@inline choice(t1::Bool, x1::T, y::T) where {T} =
+    t1 ? x1 : y
+@inline choice(t1::Bool, x1::T, t2::Bool, x2::T, y::T) where {T} =
+    t1 ? x1 :
+    t2 ? x2 : y
+@inline choice(t1::Bool, x1::T, t2::Bool, x2::T, t3::Bool, x3::T, y::T) where {T} =
+    t1 ? x1 :
+    t2 ? x2 :
+    t3 ? x3 : y
+
+"""
     NumOptBase.only_arrays(args...) -> tup
 
 yields a tuple of the arrays in `args...`.

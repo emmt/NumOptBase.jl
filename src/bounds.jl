@@ -365,42 +365,212 @@ See [`linesearch_limits`](@ref) for details.
 """
 linesearch_stepmax
 
-for func in (:linesearch_limits, :linesearch_stepmin, :linesearch_stepmax)
+# For `linesearch_limits`, use the same trick as for the `extrema` function in
+# `base/reduce.jl`.
+struct Twice{F} <: Function
+    func::F
+end
+@inline (obj::Twice)(args...; kwds...) = twice(obj.func(args...; kwds...))
+@inline twice(x) = (x, x)
+
+for what in (:limits, :stepmin, :stepmax)
+    func = Symbol("linesearch_",what)
     unsafe_func = Symbol("unsafe_",func)
+    initial = Symbol(what,"_initial")
+    reduce = Symbol(what,"_reduce")
+    final = Symbol(what,"_final")
+    filter = what === :limits ? :Twin : :identity
     @eval begin
         function $func(x::AbstractArray{T,N},
-                       pm::PlusOrMinus,
-                       d::AbstractArray{T,N},
+                       pm::PlusOrMinus, d::AbstractArray{T,N},
                        Ω::BoundedSet{T,N}) where {T,N}
             return $func(engine(x, d, Ω...), x, pm, d, Ω)
         end
 
-        function $func(::Type{E},
-                       x::AbstractArray{T,N},
-                       pm::PlusOrMinus,
-                       d::AbstractArray{T,N},
+        function $func(::Type{E}, x::AbstractArray{T,N},
+                       pm::PlusOrMinus, d::AbstractArray{T,N},
                        Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
             # NOTE: See comments in `project_variables!`.
             check_axes(x; dir=d, lower=Ω.lower, upper=Ω.upper)
-            below, above = is_bounding(Ω)
+            return $unsafe_func(E, x, pm, d, Ω...)
+        end
+        function $unsafe_func(::Type{E}, x::AbstractArray{T,N},
+                              pm::PlusOrMinus, d::AbstractArray{T,N},
+                              l::AbstractArray{T,N},
+                              u::AbstractArray{T,N}) where {E<:Engine,T,N}
+            below, above = is_bounding(l, u)
+            r = $initial(T)
             if below & above
-                $unsafe_func(E, x, pm, d, Ω.lower, Ω.upper)
+                r = mapreduce($filter(step_to_bounds(     pm)), $reduce, x, d, l, u; init=r)
             elseif below
-                $unsafe_func(E, x, pm, d, Ω.lower, nothing)
+                r = mapreduce($filter(step_to_lower_bound(pm)), $reduce, x, d, l   ; init=r)
             elseif above
-                $unsafe_func(E, x, pm, d, nothing, Ω.upper)
-            else
-                unconstrained_result($func, T)
+                r = mapreduce($filter(step_to_upper_bound(pm)), $reduce, x, d,    u; init=r)
             end
+            return $final(r)
         end
     end
 end
 
-unconstrained_result(::typeof(linesearch_stepmin), ::Type{T}) where {T} = typemax(T)
-unconstrained_result(::typeof(linesearch_stepmax), ::Type{T}) where {T} = typemax(T)
-unconstrained_result(::typeof(linesearch_limits), ::Type{T}) where {T} =
-    (unconstrained_result(linesearch_stepmin, T),
-     unconstrained_result(linesearch_stepmax, T))
+stepmin_initial(::Type{T}) where {T} = typemax(T)
+stepmax_initial(::Type{T}) where {T} = typemin(T)
+limits_initial(::Type{T}) where {T} = (stepmin_initial(T), stepmax_initial(T))
+
+stepmin_final(αₘᵢₙ) = αₘᵢₙ
+stepmax_final(αₘₐₓ) = αₘₐₓ ≥ zero(αₘₐₓ) ? αₘₐₓ : zero(αₘₐₓ)
+limits_final((αₘᵢₙ, αₘₐₓ)) = (stepmin_final(αₘᵢₙ), stepmax_final(αₘₐₓ))
+
+# The following functions yields the min./max. step size between `a` and `b`.
+#
+# NOTE: These functions are intended to be used as the reduce operator in a
+#       call to `mapreduce`. They do not assume a specific order of their
+#       arguments but rely on (i) the initial value to not be a NaN and (i)
+#       IEEE rules that a comparison involving a NaN always yields false.
+@inline stepmin_reduce(a::T, b::T) where {T} = (isnan(b) | (a < b)) ? a : b
+@inline stepmax_reduce(a::T, b::T) where {T} = (isnan(b) | (a > b)) ? a : b
+@inline limits_reduce((min1, max1), (min2, max2)) = (stepmin_reduce(min1, min2),
+                                                     stepmax_reduce(max1, max2))
+
+"""
+    NumOptBase.step_to_bounds(±) -> f
+
+yields the function `f` such that `f(x,d,l,u)` yields the same result as
+`step_to_bounds(x,±,d,l,u)`.
+
+"""
+step_to_bounds(::Plus) = step_to_bounds
+step_to_bounds(::Minus) = step_from_bounds
+
+"""
+    NumOptBase.step_to_lower_bound(±) -> f
+
+yields the function `f` such that `f(x,d,l)` yields the same result as
+`step_to_lower_bound(x,±,d,l)`.
+
+"""
+step_to_lower_bound(::Plus) = step_to_lower_bound
+step_to_lower_bound(::Minus) = step_from_lower_bound
+
+"""
+    NumOptBase.step_to_upper_bound(±) -> f
+
+yields the function `f` such that `f(x,d,u)` yields the same result as
+`step_to_upper_bound(x,±,d,u)`.
+
+"""
+step_to_upper_bound(::Plus) = step_to_upper_bound
+step_to_upper_bound(::Minus) = step_from_upper_bound
+
+"""
+    NumOptBase.step_to_bounds(x, d, l, u) -> α
+    NumOptBase.step_to_bounds(x, +, d, l, u) -> α
+
+for the variable `x` such that `l ≤ x ≤ u` and search direction `d`, yield the
+nonnegative step `α` to one of the bounds `l` or `u` depending on the sign of
+`d`:
+
+- if `d < 0`, `α ≥ 0` such that `x + α*d = l` is returned;
+- if `d > 0`, `α ≥ 0` such that `x + α*d = u` is returned;
+- otherwise, `α = NaN` is returned.
+
+"""
+@inline step_to_bounds(x::T, d::T, l::T, u::T) where {T<:AbstractFloat} =
+    choice(d < zero(d), (l - x)/d,
+           d > zero(d), (u - x)/d, T(NaN))
+
+"""
+    NumOptBase.step_from_bounds(x, d, l, u) -> α
+    NumOptBase.step_to_bounds(x, -, d, l, u) -> α
+
+for the variable `x` such that `l ≤ x ≤ u` and search direction `d`, yield the
+nonnegative step `α` from one of the bounds `l` or `u` depending on the sign of
+`d`:
+
+- if `d > 0`, `α ≥ 0` such that `x - α*d = l` is returned;
+- if `d < 0`, `α ≥ 0` such that `x - α*d = u` is returned;
+- otherwise, `α = NaN` is returned.
+
+"""
+@inline step_from_bounds(x::T, d::T, l::T, u::T) where {T<:AbstractFloat} =
+    choice(d > zero(d), (x - l)/d,
+           d < zero(d), (x - u)/d, T(NaN))
+
+"""
+    NumOptBase.step_to_lower_bound(x, d, l) -> α
+    NumOptBase.step_to_lower_bound(x, +, d, l) -> α
+
+for the variable `x` such that `l ≤ x` and search direction `d`, yield `+Inf`,
+`NaN`, or the nonnegative step `α` to the lower bound `l` depending on the
+sign of `d`:
+
+- if `d < 0`, `α ≥ 0` such that `x + α*d = l` is returned;
+- if `d > 0`, `α = +Inf` is returned;
+- otherwise, `α = NaN` is returned.
+
+"""
+@inline step_to_lower_bound(x::T, d::T, l::T) where {T<:AbstractFloat} =
+    choice(d < zero(d), (l - x)/d,
+           d > zero(d), typemax(T), T(NaN))
+
+
+"""
+    NumOptBase.step_from_lower_bound(x, d, l) -> α
+    NumOptBase.step_to_lower_bound(x, -, d, l) -> α
+
+for the variable `x` such that `l ≤ x` and search direction `d`, yield `+Inf`,
+`NaN`, or the nonnegative step `α` from the lower bound `l` depending on the
+sign of `d`:
+
+- if `d > 0`, `α ≥ 0` such that `x - α*d = l` is returned;
+- if `d < 0`, `α = +Inf` is returned;
+- otherwise, `α = NaN` is returned.
+
+"""
+@inline step_from_lower_bound(x::T, d::T, l::T) where {T<:AbstractFloat} =
+    choice(d > zero(d), (x - l)/d,
+           d < zero(d), typemax(T), T(NaN))
+
+"""
+    NumOptBase.step_to_upper_bound(x, d, u) -> α
+    NumOptBase.step_to_upper_bound(x, +, d, u) -> α
+
+for the variable `x` such that `x ≤ u` and search direction `d`, yield `+Inf`,
+`NaN`, or the nonnegative step `α` to the upper bound `u` depending on the
+sign of `d`:
+
+- if `d > 0`, `α ≥ 0` such that `x + α*d = u` is returned;
+- if `d < 0`, `α = +Inf` is returned;
+- otherwise, `α = NaN` is returned.
+
+"""
+@inline step_to_upper_bound(x::T, d::T, u::T) where {T<:AbstractFloat} =
+    choice(d > zero(d), (u - x)/d,
+           d < zero(d), typemax(T), T(NaN))
+
+"""
+    NumOptBase.step_from_upper_bound(x, d, u) -> α
+    NumOptBase.step_to_upper_bound(x, -, d, u) -> α
+
+for the variable `x` such that `x ≤ u` and search direction `d`, yield `+Inf`,
+`NaN`, or the nonnegative step `α` from the upper bound `u` depending on the
+sign of `d`:
+
+- if `d < 0`, `α ≥ 0` such that `x - α*d = u` is returned;
+- if `d > 0`, `α = +Inf` is returned;
+- otherwise, `α = NaN` is returned.
+
+"""
+@inline step_from_upper_bound(x::T, d::T, u::T) where {T<:AbstractFloat} =
+    choice(d < zero(d), (x - u)/d,
+           d > zero(d), typemax(T), T(NaN))
+
+step_to_bounds(     x, ::Plus,  d, l, u) = step_to_bounds(     x, d, l, u)
+step_to_lower_bound(x, ::Plus,  d, l   ) = step_to_lower_bound(x, d, l   )
+step_to_upper_bound(x, ::Plus,  d,    u) = step_to_upper_bound(x, d,    u)
+
+step_to_bounds(     x, ::Minus, d, l, u) = step_from_bounds(     x, d, l, u)
+step_to_lower_bound(x, ::Minus, d, l   ) = step_from_lower_bound(x, d, l   )
+step_to_upper_bound(x, ::Minus, d,    u) = step_from_upper_bound(x, d,    u)
 
 # Unsafe implementations for basic engines.
 for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
@@ -550,73 +720,3 @@ is_positive(::Minus, x) = is_negative(x)
 is_negative(         x) = x < zero(x)
 is_negative(::Plus,  x) = is_negative(x)
 is_negative(::Minus, x) = is_positive(x)
-
-# NOTE: The following code relies on IEEE arithmetics to compute the
-#       line-search step limits. In particular, it is assumed that comparisons
-#       can only be true if none of the operands is NaN. Do not change this
-#       code unless you know what you do.
-#
-# step_to_bound(x,±,d,b) yields the value of the step α to reach the bound b,
-# may yield NaN, infinite, or negative value.
-step_to_bound(x::T, ::Plus,  d::T, b::T) where {T} = (b - x)/d
-step_to_bound(x::T, ::Minus, d::T, b::T) where {T} = (x - b)/d
-#
-# Initialize, update, and finalize αmin.
-initial_stepmin(::Type{T}) where {T} = typemax(T)
-update_stepmin(αmin::T, α::T) where {T} = zero(α) ≤ α < αmin ? α : αmin
-final_stepmin(αmin) = αmin
-#
-# Initialize, update, and finalize αmax.
-initial_stepmax(::Type{T}) where {T} = -one(T)
-update_stepmax(αmax::T, α::T) where {T} = α > αmax ? α : αmax
-final_stepmax(αmax) = αmax ≥ zero(αmax) ? αmax : typemax(αmax)
-
-# NOTE: The `update_...` methods are written so as to avoid branches, except
-#       those based on types which should be optimized out by the compiler.
-
-function update_limits(αmin::T, αmax::T, x::T, pm::PlusOrMinus, d::T,
-                       lower::L, upper::U) where {T,
-                                                  L<:Union{T,Nothing},
-                                                  U<:Union{T,Nothing}}
-    if L === T
-        α = step_to_bound(x, pm, d, lower)
-        αmin = update_stepmin(αmin, α)
-        αmax = update_stepmax(αmax, α)
-    end
-    if U === T
-        α = step_to_bound(x, pm, d, upper)
-        αmin = update_stepmin(αmin, α)
-        αmax = update_stepmax(αmax, α)
-    end
-    return αmin, αmax
-end
-
-function update_stepmin(αmin::T, x::T, pm::PlusOrMinus, d::T,
-                        lower::L, upper::U) where {T,
-                                                   L<:Union{T,Nothing},
-                                                   U<:Union{T,Nothing}}
-    if L === T
-        α = step_to_bound(x, pm, d, lower)
-        αmin = update_stepmin(αmin, α)
-    end
-    if U === T
-        α = step_to_bound(x, pm, d, upper)
-        αmin = update_stepmin(αmin, α)
-    end
-    return αmin
-end
-
-function update_stepmax(αmax::T, x::T, pm::PlusOrMinus, d::T,
-                        lower::L, upper::U) where {T,
-                                                   L<:Union{T,Nothing},
-                                                   U<:Union{T,Nothing}}
-    if L === T
-        α = step_to_bound(x, pm, d, lower)
-        αmax = update_stepmax(αmax, α)
-    end
-    if U === T
-        α = step_to_bound(x, pm, d, upper)
-        αmax = update_stepmax(αmax, α)
-    end
-    return αmax
-end
