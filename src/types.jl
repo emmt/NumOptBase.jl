@@ -196,8 +196,6 @@ either of:
     BoundedSet{T}(Ω)
     convert(BoundedSet{T}, Ω)
 
-See [`NumOptBase.Bound`](@ref) for possible bound arguments.
-
 """
 struct BoundedSet{T,N,L<:AbstractArray{T,N},U<:AbstractArray{T,N}}
     lower::L

@@ -276,8 +276,7 @@ function norminf(::Type{<:CudaEngine}, x::CuArray{T,N}) where {R<:Real,T<:RealCo
     return mapreduce(norminf, max, x; init=norminf(zero(R)))
 end
 
-# Type of arguments suitable to represent a bound for CUDA arrays, see
-# `Bound{T,N}`.
+# Type of arguments suitable to represent a bound for CUDA arrays.
 const CuBound{T,N} = Union{Nothing,T,CuArray{T,N}}
 const CuDeviceBound{T,N} = Union{Nothing,T,CuDeviceArray{T,N}}
 

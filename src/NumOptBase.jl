@@ -23,7 +23,6 @@ export
 
 export
     # Bound constraints:
-    Bound,
     BoundedSet,
     Projector,
     linesearch_limits,
