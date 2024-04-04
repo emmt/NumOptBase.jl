@@ -84,7 +84,7 @@ zero-fill `A` and returns it. The fallback implementation simply calls
 `fill!(A, zero(eltype(A)))`.
 
 """
-zerofill!(A::AbstractArray{T}) where {T} = fill!(A, zero(T))
+zerofill!(A::AbstractArray) = fill!(A, zero(eltype(A)))
 
 """
     NumOptBase.scale!([E,] dst, α, x) -> dst
