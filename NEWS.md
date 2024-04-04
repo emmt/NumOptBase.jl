@@ -6,6 +6,9 @@
 
 - Non-exported `is_bounded...` renamed as `is_bounding...`.
 
+- Fix `x ∈ Ω` for`Ω::BoundedSet` to not throw exception and to also check that
+  element types match.
+
 ## Version 0.2.3
 
 - `isempty(Ω)` yields whether the bounded set `Ω` is empty, that is infeasible.

@@ -18,16 +18,14 @@ function BoundedSet{T}(vars::AbstractArray{<:Any,N};
                        lower = nothing, upper = nothing) where {T,N}
     rngs = axes(vars)
     lower = if lower isa AbstractArray
-        axes(lower) == rngs || throw(DimensionMismatch(
-            "lower bound and variables have different axes, got $(axes(lower)) and $rngs"))
+        check_axes("lower bound", lower, rngs)
         convert_eltype(T, lower)
     else
         val = lower isa Nothing ? typemin(T) : as(T, lower)
         UniformArray(val, rngs)
     end
     upper = if upper isa AbstractArray
-        axes(upper) == rngs || throw(DimensionMismatch(
-            "upper bound and variables have different axes, got $(axes(upper)) and $rngs"))
+        check_axes("upper bound", upper, rngs)
         convert_eltype(T, upper)
     else
         val = upper isa Nothing ? typemax(T) : as(T, upper)
@@ -99,23 +97,27 @@ unsafe_feasible_bounds(lower::AbstractUniformArray, upper::AbstractArray) =
 unsafe_feasible_bounds(lower::AbstractUniformArray, upper::AbstractUniformArray) =
     value(lower) ≤ value(upper)
 
-function Base.in(x::AbstractArray, Ω::BoundedSet)
-    check_axes(x, Ω...)
-    below, above = is_bounding(Ω)
+Base.in(x, Ω::BoundedSet) = false
+function Base.in(x::AbstractArray{T,N}, Ω::BoundedSet{T,N}) where {T,N}
+    l, u = Ω
+    rngs = axes(x)
+    l isa Nothing || axes(l) == rngs || return false
+    u isa Nothing || axes(u) == rngs || return false
+    below, above = is_bounding(l, u)
     if below & above
         # Test that the bounded set is feasible. According to IEEE rules for
         # comparisons, it will be considered as empty if some bounds are NaN's.
-        return mapreduce(in_bounds, &, x, Ω.lower, Ω.upper; init=true)
+        return mapreduce(in_bounds, &, x, l, u; init=true)
     elseif below
-        return mapreduce(≥, &, x, Ω.lower; init=true)
+        return mapreduce(≥, &, x, l; init=true)
     elseif above
-        return mapreduce(≤, &, x, Ω.upper)
+        return mapreduce(≤, &, x, u; init=true)
     else
         return true
     end
 end
 
-in_bounds(x::Number, l::Number, u::Number) = ((x ≥ l)&(x ≤ u))
+in_bounds(x::T, l::T, u::T) where {T} = ((x ≥ l)&(x ≤ u))
 
 # Projector API.
 (P::Projector)(x::AbstractArray) = P(similar(x), x)
@@ -188,7 +190,7 @@ function project_variables!(::Type{E},
     # bounds, call an unsafe method with non-limiting bounds specified as
     # `nothing` so as to allow for dispatching on an optimized version based on
     # the bound types.
-    check_axes(dst, x, Ω...)
+    check_axes(x; dest=dst, lower=Ω.lower, upper=Ω.upper)
     below, above = is_bounding(Ω)
     if below & above
         unsafe_project_variables!(E, dst, x, Ω.lower, Ω.upper)
@@ -234,7 +236,7 @@ function project_direction!(::Type{E},
                             d::AbstractArray{T,N},
                             Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
     # NOTE: See comments in `project_variables!`.
-    check_axes(dst, x, d, Ω...)
+    check_axes(x; dest=dst, dir=d, lower=Ω.lower, upper=Ω.upper)
     below, above = is_bounding(Ω)
     if below & above
         unsafe_project_direction!(E, dst, x, pm, d, Ω.lower, Ω.upper)
@@ -284,7 +286,7 @@ function unblocked_variables!(::Type{E},
                               d::AbstractArray{T,N},
                               Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
     # NOTE: See comments in `project_variables!`.
-    check_axes(dst, x, d, Ω...)
+    check_axes(x; dest=dst, dir=d, lower=Ω.lower, upper=Ω.upper)
     below, above = is_bounding(Ω)
     if below & above
         unsafe_unblocked_variables!(E, dst, x, pm, d, Ω.lower, Ω.upper)
@@ -379,7 +381,7 @@ for func in (:linesearch_limits, :linesearch_stepmin, :linesearch_stepmax)
                        d::AbstractArray{T,N},
                        Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
             # NOTE: See comments in `project_variables!`.
-            check_axes(x, d, Ω...)
+            check_axes(x; dir=d, lower=Ω.lower, upper=Ω.upper)
             below, above = is_bounding(Ω)
             if below & above
                 $unsafe_func(E, x, pm, d, Ω.lower, Ω.upper)

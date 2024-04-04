@@ -209,8 +209,8 @@ struct BoundedSet{T,N,L<:AbstractArray{T,N},U<:AbstractArray{T,N}}
             "variables must have concrete element type, got $T"))
         T === float(T) || throw(ArgumentError(
             "variables must have floating-point element type, got $T"))
-        axes(lower) == axes(upper) || throw(DimensionMismatch(
-            "bounds must have the same axes, got $(axes(lower)) and $(axes(upper))"))
+        axes(lower) == axes(upper) || throw(DimensionMismatch(pretty(
+            "bounds must have the same axes, got ", axes(lower), " and ", axes(upper))))
         return new{T,N,L,U}(lower, upper)
     end
 end
