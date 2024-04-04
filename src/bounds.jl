@@ -434,8 +434,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                              d::AbstractArray{T,N},
                                              lower, upper) where {B,T,N}
             @vectorize $optim for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
-                dst[i] = is_unblocked(B, x[i], pm, d[i],
-                                      get_bound(lower, i), get_bound(upper, i))
+                dst[i] = can_vary(B, x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
             end
             return nothing
         end
@@ -506,32 +505,42 @@ end
 # simplify expressions depending on the type of the bounds. All these methods
 # are supposed to be in-lined.
 
-project_variable(x, lower, upper) =
-    project_above(project_below(x, lower), upper)
+project_variable(x, lower, upper) = project_above(project_below(x, lower), upper)
 
-project_direction(x, pm::PlusOrMinus, d, lower, upper) =
-    ifelse(is_unblocked(x, pm, d, lower, upper), d, zero(d))
-
-is_unblocked(x, pm::PlusOrMinus, d, lower, upper) =
-    (is_unblocked_below(x, pm, d, lower) &
-     is_unblocked_above(x, pm, d, upper))
-
-is_unblocked(::Type{T}, x, pm::PlusOrMinus, d, lower, upper) where {T} =
-    ifelse(is_unblocked(x, pm, d, lower, upper), one(T), zero(T))
+project_below(x, lower::Nothing) = x
+project_above(x, upper::Nothing) = x
 
 project_below(x::T, lower::T) where {T} = x < lower ? lower : x
-project_below(x::T, lower::Nothing) where {T} = x
-
 project_above(x::T, upper::T) where {T} = x > upper ? upper : x
-project_above(x::T, upper::Nothing) where {T} = x
 
-is_unblocked_below(x, pm::PlusOrMinus, d, lower::Nothing) = true
-is_unblocked_below(x, pm::PlusOrMinus, d, lower) =
-    (x > lower) | is_positive(pm, d)
+project_direction(x, pm::PlusOrMinus, d, lower, upper) =
+    ifelse(can_vary(x, pm, d, lower, upper), d, zero(d))
 
-is_unblocked_above(x, pm::PlusOrMinus, d, upper::Nothing) = true
-is_unblocked_above(x, pm::PlusOrMinus, d, upper) =
-    (x < upper) | is_negative(pm, d)
+"""
+    NumOptBase.can_vary([T=Bool,] x, ±, d, lower, upper)
+
+yields whether `x ± α⋅d != x` can hold within the `lower` and `upper` bounds
+and for some `α > 0`. Optional argument `T` is the type of the result:
+`oneunit(T)` if true, `zero(T)` otherwise. `lower` and/or `upper` may be
+`nothing` if there is no such bound.
+
+If no variables can vary in the direction `-∇f(x)`, then the Karush-Kuhn-Tucker
+(K.K.T.) conditions hold for the bound constrained minimization of `f(x)`.
+
+"""
+can_vary(::Type{T}, x, pm::PlusOrMinus, d, lower, upper) where {T} =
+    ifelse(can_vary(x, pm, d, lower, upper), oneunit(T), zero(T))
+can_vary(x, pm::PlusOrMinus, d, lower, upper) =
+    can_decrease(x, pm, d, lower) |
+    can_increase(x, pm, d, upper)
+
+# Yield whether `lower ≤ x ± α⋅d < x` is possible for `α > 0`.
+can_decrease(x, pm::PlusOrMinus, d, lower) = is_negative(pm, d) & (x > lower)
+can_decrease(x, pm::PlusOrMinus, d, lower::Nothing) = is_negative(pm, d)
+
+# Yield whether `x < x ± α⋅d ≤ upper` is possible for `α > 0`.
+can_increase(x, pm::PlusOrMinus, d, upper) = is_positive(pm, d) & (x < upper)
+can_increase(x, pm::PlusOrMinus, d, upper::Nothing) = is_positive(pm, d)
 
 is_positive(         x) = x > zero(x)
 is_positive(::Plus,  x) = is_positive(x)

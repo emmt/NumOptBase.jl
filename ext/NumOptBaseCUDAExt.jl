@@ -9,7 +9,7 @@ if isdefined(Base, :get_extension)
         RealComplex,
         convert_multiplier,
         get_bound,
-        is_unblocked,
+        can_vary,
         project_direction,
         project_variable,
         αx, αxpy, αxmy, αxpβy
@@ -39,7 +39,7 @@ else
         RealComplex,
         convert_multiplier,
         get_bound,
-        is_unblocked,
+        can_vary,
         project_direction,
         project_variable,
         αx, αxpy, αxmy, αxpβy
@@ -334,8 +334,7 @@ function device_unblocked_variables!(dst::CuDeviceArray{B,N},
                                      lower::CuDeviceBound{T,N},
                                      upper::CuDeviceBound{T,N}) where {B,T,N}
     @inbounds for i in @gpu_range(dst)
-        dst[i] = is_unblocked(B, x[i], pm, d[i],
-                              get_bound(lower, i), get_bound(upper, i))
+        dst[i] = can_vary(B, x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
     end
     return nothing # GPU kernels return nothing
 end

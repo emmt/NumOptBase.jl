@@ -9,7 +9,7 @@ if isdefined(Base, :get_extension)
         TurboArray,
         TurboLoopEngine,
         get_bound,
-        is_unblocked,
+        can_vary,
         only_arrays,
         project_direction,
         project_variable
@@ -32,7 +32,7 @@ else
         TurboArray,
         TurboLoopEngine,
         get_bound,
-        is_unblocked,
+        can_vary,
         only_arrays,
         project_direction,
         project_variable
@@ -228,8 +228,7 @@ end
                                              lower::TurboBound{T,N},
                                              upper::TurboBound{T,N}) where {B,T,N}
             @turbo for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
-                dst[i] = is_unblocked(B, x[i], pm, d[i],
-                                      get_bound(lower, i), get_bound(upper, i))
+                dst[i] = can_vary(B, x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
             end
             return nothing
         end
