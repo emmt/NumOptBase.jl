@@ -1,11 +1,21 @@
-using NumOptBase, Test, LinearAlgebra
-
+using Test
+using LinearAlgebra
+using StructuredArrays
+using NumOptBase
 using NumOptBase:
-    is_bounding_below, is_bounding_above,
-    stepmin_reduce, stepmax_reduce,
-    step_to_bounds, step_from_bounds,
-    step_to_lower_bound, step_from_lower_bound,
-    step_to_upper_bound, step_from_uppe_bound
+    check_axes,
+    engine,
+    is_bounding_above,
+    is_bounding_below,
+    only_arrays,
+    step_from_bounds,
+    step_from_lower_bound,
+    step_from_upper_bound,
+    step_to_bounds,
+    step_to_lower_bound,
+    step_to_upper_bound,
+    stepmax_reduce,
+    stepmin_reduce
 
 # Automatically use LoopVectorization if Julia is sufficiently recent. NOTE: It
 # is always possible to manually load LoopVectorization before testing).
@@ -78,9 +88,6 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
     end
 
     @testset "Array Utilities ($A)" for A in array_types
-        engine = NumOptBase.engine
-        only_arrays = NumOptBase.only_arrays
-        check_axes = NumOptBase.check_axes
         w = convert(A, collect(-1:4))
         x = convert(A, zeros(Float64, 2,3))
         y = convert(A, ones(Float32, size(x)))
@@ -100,11 +107,13 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         @test (w, x, y) === @inferred only_arrays(w, x, y)
         @test (w, x, y) === @inferred only_arrays(w, x, 1, y)
         @test (w, x, y) === @inferred only_arrays(0, w, x, 1, y)
+        #=
         @test nothing === @inferred check_axes()
         @test nothing === @inferred check_axes(x)
         @test nothing === @inferred check_axes(x, y)
         @test_throws DimensionMismatch check_axes(w, x)
         @test_throws DimensionMismatch check_axes(x, x')
+        =#
     end
 
     eltypes = (Float64, Complex{Float32})

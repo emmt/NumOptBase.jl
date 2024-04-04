@@ -133,9 +133,9 @@ function project_direction!(dst::AbstractArray{T,N},
     return dst
 end
 
-# Reference version of unblocked_variables!. Not meant to be smart, just to
+# Reference version of updatable_variables!. Not meant to be smart, just to
 # provide correct result.
-function unblocked_variables!(dst::AbstractArray{B,N},
+function updatable_variables!(dst::AbstractArray{B,N},
                               x::AbstractArray{T,N},
                               pm::PlusOrMinus, d::AbstractArray{T,N},
                               Ω::BoundedSet{T,N}) where {B,T,N}
