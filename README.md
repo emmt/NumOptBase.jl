@@ -271,7 +271,7 @@ which overwrites the destination `dₚ` and where `±` is either `+` or `-`.
 A closely related function is:
 
 ``` julia
-updatable_variables!(a, x, ±, d, Ω)
+changing_variables!(a, x, ±, d, Ω)
 ```
 
 which overwrites the destination `a` with ones where variables in `x ∈ Ω` will
@@ -312,7 +312,7 @@ variables are all the same for any `α` such that `α ≥ αₘₐₓ`. The valu
 αₘᵢₙ, αₘₐₓ = linesearch_limits(x, ±, d, Ω)
 ```
 
-Note that, for efficiency, `project_direction!`, `updatable_variables!`,
+Note that, for efficiency, `project_direction!`, `changing_variables!`,
 `linesearch_stepmin`, `linesearch_stepmax`, and `linesearch_limits` assume
 without checking that the input variables `x` are feasible, that is that `x ∈
 Ω` holds.

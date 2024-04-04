@@ -251,49 +251,49 @@ function project_direction!(::Type{E},
 end
 
 """
-    updatable_variables!([E,] dst, x, ±, d, Ω) -> dst
+    changing_variables!([E,] dst, x, ±, d, Ω) -> dst
 
-overwrites destination `dst` with ones where variables in `x` can be updated
-within the bounds implemented by `Ω` along direction `±d` and zeros elsewhere.
+overwrites destination `dst` with ones where variables in `x` will vary along
+direction `±d` within the bounds implemented by `Ω` and zeros elsewhere.
 
 For efficiency, it is assumed without checking that `x ∈ Ω` holds.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x, d, Ω...)` is assumed.
 
-It is assumed that `x[i]` is not updatable if `d[i] = 0`. Hence, if `±d =
--∇f(x)`, with `∇f(x)` the gradient of the objective function, the destination
-is set to zero everywhere the Karush-Kuhn-Tucker (K.K.T.) conditions are
-satisfied for the problem:
+Note that `x[i]` is non-changing if `d[i] = 0`. Hence, if `±d = -∇f(x)`, with
+`∇f(x)` the gradient of the objective function, the destination is set to zero
+everywhere the Karush-Kuhn-Tucker (K.K.T.) conditions are satisfied for the
+problem:
 
     minₓ f(x) s.t. x ∈ Ω
 
 In other words, `all(izero, dst)` holds for (exact) convergence.
 
 """
-function updatable_variables!(dst::AbstractArray{<:Real,N},
-                              x::AbstractArray{T,N},
-                              pm::PlusOrMinus,
-                              d::AbstractArray{T,N},
-                              Ω::BoundedSet{T,N}) where {T,N}
-    return updatable_variables!(engine(dst, x, d, Ω...), dst, x, pm, d, Ω)
+function changing_variables!(dst::AbstractArray{<:Real,N},
+                             x::AbstractArray{T,N},
+                             pm::PlusOrMinus,
+                             d::AbstractArray{T,N},
+                             Ω::BoundedSet{T,N}) where {T,N}
+    return changing_variables!(engine(dst, x, d, Ω...), dst, x, pm, d, Ω)
 end
 
-function updatable_variables!(::Type{E},
-                              dst::AbstractArray{<:Real,N},
-                              x::AbstractArray{T,N},
-                              pm::PlusOrMinus,
-                              d::AbstractArray{T,N},
-                              Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
+function changing_variables!(::Type{E},
+                             dst::AbstractArray{<:Real,N},
+                             x::AbstractArray{T,N},
+                             pm::PlusOrMinus,
+                             d::AbstractArray{T,N},
+                             Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
     # NOTE: See comments in `project_variables!`.
     check_axes(x; dest=dst, dir=d, lower=Ω.lower, upper=Ω.upper)
     below, above = is_bounding(Ω)
     if below & above
-        unsafe_updatable_variables!(E, dst, x, pm, d, Ω.lower, Ω.upper)
+        unsafe_changing_variables!(E, dst, x, pm, d, Ω.lower, Ω.upper)
     elseif below
-        unsafe_updatable_variables!(E, dst, x, pm, d, Ω.lower, nothing)
+        unsafe_changing_variables!(E, dst, x, pm, d, Ω.lower, nothing)
     elseif above
-        unsafe_updatable_variables!(E, dst, x, pm, d, nothing, Ω.upper)
+        unsafe_changing_variables!(E, dst, x, pm, d, nothing, Ω.upper)
     else
         fill!(dst, one(eltype(dst)))
     end
@@ -597,12 +597,12 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
             end
             return nothing
         end
-        function unsafe_updatable_variables!(::Type{<:$engine},
-                                             dst::AbstractArray{B,N},
-                                             x::AbstractArray{T,N},
-                                             pm::PlusOrMinus,
-                                             d::AbstractArray{T,N},
-                                             lower, upper) where {B,T,N}
+        function unsafe_changing_variables!(::Type{<:$engine},
+                                            dst::AbstractArray{B,N},
+                                            x::AbstractArray{T,N},
+                                            pm::PlusOrMinus,
+                                            d::AbstractArray{T,N},
+                                            lower, upper) where {B,T,N}
             @vectorize $optim for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
                 dst[i] = can_vary(B, x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
             end

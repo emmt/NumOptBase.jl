@@ -133,12 +133,12 @@ function project_direction!(dst::AbstractArray{T,N},
     return dst
 end
 
-# Reference version of updatable_variables!. Not meant to be smart, just to
+# Reference version of changing_variables!. Not meant to be smart, just to
 # provide correct result.
-function updatable_variables!(dst::AbstractArray{B,N},
-                              x::AbstractArray{T,N},
-                              pm::PlusOrMinus, d::AbstractArray{T,N},
-                              Ω::BoundedSet{T,N}) where {B,T,N}
+function changing_variables!(dst::AbstractArray{B,N},
+                             x::AbstractArray{T,N},
+                             pm::PlusOrMinus, d::AbstractArray{T,N},
+                             Ω::BoundedSet{T,N}) where {B,T,N}
     for i in eachindex(x, d, only_arrays(Ω.lower, Ω.upper)...)
         s = pm(d[i])
         unblocked =

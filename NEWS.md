@@ -9,7 +9,7 @@
 - Fix `x ∈ Ω` for`Ω::BoundedSet` to not throw exception and to also check that
   element types match.
 
-- Method `unblocked_variables!` renamed as `updatable_variables!` and fixed to
+- Method `unblocked_variables!` renamed as `changing_variables!` and fixed to
   closely follows the logic of the Karush-Kuhn-Tucker (K.K.T.) conditions.
 
 - The default implementations of `linesearch_limits`, `linesearch_stepmin`, and

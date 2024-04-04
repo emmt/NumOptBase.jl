@@ -24,7 +24,7 @@ if isdefined(Base, :get_extension)
         unsafe_map!,
         unsafe_project_direction!,
         unsafe_project_variables!,
-        unsafe_updatable_variables!,
+        unsafe_changing_variables!,
         unsafe_update!,
         zerofill!
 else
@@ -51,7 +51,7 @@ else
         unsafe_map!,
         unsafe_project_direction!,
         unsafe_project_variables!,
-        unsafe_updatable_variables!,
+        unsafe_changing_variables!,
         unsafe_update!,
         zerofill!
 end
@@ -320,26 +320,26 @@ function unsafe_project_direction!(::Type{<:CudaEngine},
     return nothing
 end
 
-function device_updatable_variables!(dst::CuDeviceArray{B,N},
-                                     x::CuDeviceArray{T,N},
-                                     pm::PlusOrMinus,
-                                     d::CuDeviceArray{T,N},
-                                     lower::CuDeviceBound{T,N},
-                                     upper::CuDeviceBound{T,N}) where {B,T,N}
+function device_changing_variables!(dst::CuDeviceArray{B,N},
+                                    x::CuDeviceArray{T,N},
+                                    pm::PlusOrMinus,
+                                    d::CuDeviceArray{T,N},
+                                    lower::CuDeviceBound{T,N},
+                                    upper::CuDeviceBound{T,N}) where {B,T,N}
     @inbounds for i in @gpu_range(dst)
         dst[i] = can_vary(B, x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
     end
     return nothing # GPU kernels return nothing
 end
 
-function unsafe_updatable_variables!(::Type{<:CudaEngine},
-                                     dst::CuArray{B,N},
-                                     x::CuArray{T,N},
-                                     pm::PlusOrMinus,
-                                     d::CuArray{T,N},
-                                     lower::CuBound{T,N},
-                                     upper::CuBound{T,N}) where {B,T,N}
-    kernel = @cuda launch=false device_updatable_variables!(dst, x, pm, d, lower, upper)
+function unsafe_changing_variables!(::Type{<:CudaEngine},
+                                    dst::CuArray{B,N},
+                                    x::CuArray{T,N},
+                                    pm::PlusOrMinus,
+                                    d::CuArray{T,N},
+                                    lower::CuBound{T,N},
+                                    upper::CuBound{T,N}) where {B,T,N}
+    kernel = @cuda launch=false device_changing_variables!(dst, x, pm, d, lower, upper)
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, x, pm, d, lower, upper; threads, blocks)
     return nothing
