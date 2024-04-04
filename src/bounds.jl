@@ -151,14 +151,16 @@ is_bounding_above(u::AbstractUniformArray) = is_bounding_above(value(u))
 is_bounding_above(Ω::BoundedSet) = is_bounding_above(Ω.upper)
 
 """
-    NumOptBase.is_bounding(Ω::NumOptBase.BoundedSet) -> below, above
+   NumOptBase.is_bounding(lower, upper) -> below, above
+   NumOptBase.is_bounding(Ω::NumOptBase.BoundedSet) -> below, above
 
-yields whether bounds set by `Ω` may be limiting below and/or above. See
-[`NumOptBase.is_bounding_below`](@ref), [`NumOptBase.is_bounding_above`](@ref),
-and [`NumOptBase.BoundedSet`](@ref).
+yield whether bounds set by `lower` and `upper` or by `Ω` may be limiting below
+and/or above. See [`NumOptBase.is_bounding_below`](@ref),
+[`NumOptBase.is_bounding_above`](@ref), and [`NumOptBase.BoundedSet`](@ref).
 
 """
-is_bounding(Ω::BoundedSet) = (is_bounding_below(Ω), is_bounding_above(Ω))
+is_bounding(lower, upper) = (is_bounding_below(lower), is_bounding_above(upper))
+is_bounding(Ω::BoundedSet) = is_bounding(Ω...)
 
 """
     project_variables!([E,] dst, x, Ω) -> dst
