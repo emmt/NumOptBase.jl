@@ -1,72 +1,107 @@
+using StructuredArrays: value
+
 # BoundSet constructors.
-function BoundedSet{T,N}(lower::L, upper::U) where {T,N,L<:Bound{T,N},U<:Bound{T,N}}
-    return BoundedSet{T,N,L,U}(lower, upper)
+function BoundedSet(lower::AbstractArray{<:Any,N}, upper::AbstractArray{<:Any,N}) where {N}
+    T = float(promote_type(eltype(lower), eltype(upper)))
+    return BoundedSet{T}(lower, upper)
 end
 
-function BoundedSet{T,N}(lower, upper) where {T,N}
-    to_bound(::Type{T}, ::Val{N}, B::Bound{T,N}) where {T,N} = B
-    to_bound(::Type{T}, ::Val{N}, B::Number) where {T,N} = as(T, B)
-    to_bound(::Type{T}, ::Val{N}, B::AbstractArray{<:Any,N}) where {T,N} =
-        unsafe_copy!(similar(B, T), B)
-    @noinline to_bound(::Type{T}, ::Val{N}, B) where {T,N} =
-        throw(ArgumentError(
-            "cannot convert argument of type $(typeof(B)) into a bound of type Bound{$T,$N}"))
-    return BoundedSet{T,N}(to_bound(T, Val(N), lower),
-                           to_bound(T, Val(N), upper))
+function BoundedSet{T}(lower::AbstractArray{<:Any,N}, upper::AbstractArray{<:Any,N}) where {T,N}
+    return BoundedSet{T}(convert_eltype(T, lower), convert_eltype(T, upper))
 end
 
-BoundedSet{T}(Ω::BoundedSet{T,N}) where {T,N} = Ω
-BoundedSet{T}(Ω::BoundedSet{<:Any,N}) where {T,N} = BoundedSet{T,N}(Ω)
+function BoundedSet(vars::AbstractArray; kwds...)
+    return BoundedSet{float(eltype(vars))}(vars; kwds...)
+end
 
-BoundedSet{T,N}(Ω::BoundedSet{T,N}) where {T,N} = Ω
-BoundedSet{T,N}(Ω::BoundedSet) where {T,N} = BoundedSet{T,N}(Ω.lower, Ω.upper)
+function BoundedSet{T}(vars::AbstractArray{<:Any,N};
+                       lower = nothing, upper = nothing) where {T,N}
+    rngs = axes(vars)
+    lower = if lower isa AbstractArray
+        axes(lower) == rngs || throw(DimensionMismatch(
+            "lower bound and variables have different axes, got $(axes(lower)) and $rngs"))
+        convert_eltype(T, lower)
+    else
+        val = lower isa Nothing ? typemin(T) : as(T, lower)
+        UniformArray(val, rngs)
+    end
+    upper = if upper isa AbstractArray
+        axes(upper) == rngs || throw(DimensionMismatch(
+            "upper bound and variables have different axes, got $(axes(upper)) and $rngs"))
+        convert_eltype(T, upper)
+    else
+        val = upper isa Nothing ? typemax(T) : as(T, upper)
+        UniformArray(val, rngs)
+    end
+    return BoundedSet{T}(lower, upper)
+end
 
-Base.convert(::Type{W}, Ω::W) where {W<:BoundedSet} = Ω
-Base.convert(::Type{W}, Ω::BoundedSet) where {W<:BoundedSet} = W(Ω)
+# Conversion constructors.
+BoundedSet(Ω::BoundedSet) = Ω
+BoundedSet{T}(Ω::BoundedSet{T}) where {T} = Ω
+BoundedSet{T}(Ω::BoundedSet) where {T} = BoundedSet(convert_eltype(T, Ω.lower), convert_eltype(T, Ω.upper))
+BoundedSet{T,N}(Ω::BoundedSet{<:Any,N}) where {T,N} = Ω
+
+Base.convert(::Type{BoundedSet}, Ω::BoundedSet) = BoundedSet{T}(Ω)
+Base.convert(::Type{BoundedSet{T}}, Ω::BoundedSet) where {T} = BoundedSet{T}(Ω)
+Base.convert(::Type{BoundedSet{T,N}}, Ω::BoundedSet) where {T,N} = BoundedSet{T,N}(Ω)
+Base.convert(::Type{BoundedSet{T,N,L}}, Ω::BoundedSet) where {T,N,L<:AbstractArray{T,N}} =
+    BoundedSet{T,N}(convert(L, Ω.lower), Ω.upper)
+Base.convert(::Type{BoundedSet{T,N,L,U}}, Ω::BoundedSet) where {T,N,L<:AbstractArray{T,N},U<:AbstractArray{T,N}} =
+    BoundedSet{T,N}(convert(L, Ω.lower), convert(U, Ω.upper))
+
+Base.eltype(Ω::BoundedSet) = eltype(typeof(Ω))
+Base.eltype(::Type{<:BoundedSet{T,N}}) where {T,N} = T
+
+Base.ndims(Ω::BoundedSet) = ndims(typeof(Ω))
+Base.ndims(::Type{<:BoundedSet{T,N}}) where {T,N} = N
+
+Base.iterate(Ω::BoundedSet, state::Int=1) =
+    state == 1 ? (Ω.lower, 2) :
+    state == 2 ? (Ω.lower, 3) : nothing
+
+Base.first(Ω::BoundedSet) = Ω.lower
+Base.last(Ω::BoundedSet) = Ω.upper
 
 # BoundSet API.
 function Base.isempty(Ω::BoundedSet)
-    below, above = is_bounded(Ω)
+    below, above = is_bounding(Ω)
     if below & above
-        # Test that the bounded set is feasible. According to IEEE rules for
-        # comparisons, it will be considered as empty if some bounds are NaN's.
-        return !check_all(≤, Ω.lower, Ω.upper)
+        return !feasible_bounds(Ω.lower, Ω.upper)
     elseif below
-        return any(isnan, Ω.lower)
+        return !feasible_bounds(Ω.lower, nothing)
     elseif above
-        return any(isnan, Ω.upper)
+        return !feasible_bounds(nothing, Ω.upper)
     else
-        # Unbounding sets are never empty.
-        return false
+        return !feasible_bounds(nothing, nothing)
     end
 end
 
-function check_all(f, lower::AbstractArray, upper::AbstractArray)
-    @assert_same_axes lower upper
-    return unsafe_check_all(f, lower, upper)
-end
+# Test that the bounds give a feasible set. According to IEEE rules for
+# comparisons, it will be considered as empty if some bounds are NaN's.
+feasible_bounds(lower::Nothing, upper::Nothing) = true
+feasible_bounds(lower::AbstractArray, upper::Nothing) = any(isnan, lower)
+feasible_bounds(lower::Nothing, upper::AbstractArray) = any(isnan, upper)
+feasible_bounds(lower::AbstractArray, upper::AbstractArray) =
+    axes(lower) == axes(upper) && unsafe_feasible_bounds(lower, upper)
 
-function unsafe_check_all(::typeof(≤), lower::AbstractArray, upper::AbstractArray)
-    return mapreduce(≤, &, lower, upper; init=true)
-end
+unsafe_feasible_bounds(lower::AbstractArray, upper::AbstractArray) =
+    mapreduce(≤, &, lower, upper; init=true)
 
-function unsafe_check_all(::typeof(≤), lower::AbstractArray, upper::AbstractUniformArray)
-    return mapreduce(≤, &, lower, upper; init=true)
-end
+unsafe_feasible_bounds(lower::AbstractArray, upper::AbstractUniformArray) =
+    mapreduce(≤, &, lower, upper; init=true)
 
-function unsafe_check_all(::typeof(≤), lower::AbstractUniformArray, upper::AbstractArray)
+unsafe_feasible_bounds(lower::AbstractUniformArray, upper::AbstractArray) =
     # Swap operands so that the non-uniform array appears first. This is needed
     # for `mapreduce` to work with GPU arrays.
-    return mapreduce(≥, &, upper, lower; init=true)
-end
+    mapreduce(≥, &, upper, lower; init=true)
 
-function unsafe_check_all(::typeof(≤), lower::AbstractUniformArray, upper::AbstractUniformArray)
-    return value(lower) ≤ value(upper)
-end
+unsafe_feasible_bounds(lower::AbstractUniformArray, upper::AbstractUniformArray) =
+    value(lower) ≤ value(upper)
 
 function Base.in(x::AbstractArray, Ω::BoundedSet)
-    check_axes(x, only_arrays(Ω.lower, Ω.upper)...)
-    below, above = is_bounded(Ω)
+    check_axes(x, Ω...)
+    below, above = is_bounding(Ω)
     if below & above
         # Test that the bounded set is feasible. According to IEEE rules for
         # comparisons, it will be considered as empty if some bounds are NaN's.
@@ -88,41 +123,42 @@ in_bounds(x::Number, l::Number, u::Number) = ((x ≥ l)&(x ≤ u))
     project_variables!(dst, src, P.Ω)
 
 """
-    NumOptBase.is_bounded_below(b) -> bool
+    NumOptBase.is_bounding_below(l) -> bool
 
-yields whether lower bound set by `b` may be limiting. For efficiency, if `b`
+yields whether lower bound set by `l` may be limiting. For efficiency, if `l`
 is multi-valued, it is considered as limiting even though all its values may
 all be equal to `-∞`.
 
 """
-is_bounded_below(b::Nothing) = false
-is_bounded_below(b::Number) = b > typemin(b)
-is_bounded_below(b::AbstractArray) = true
-is_bounded_below(b::AbstractUniformArray) = is_bounded_below(StructuredArrays.value(b))
+is_bounding_below(l::Nothing) = false
+is_bounding_below(l::AbstractArray) = true
+is_bounding_below(l::Number) = l > typemin(l)
+is_bounding_below(l::AbstractUniformArray) = is_bounding_below(value(l))
+is_bounding_below(Ω::BoundedSet) = is_bounding_below(Ω.lower)
 
 """
-    NumOptBase.is_bounded_above(b) -> bool
+    NumOptBase.is_bounding_above(u) -> bool
 
-yields whether upper bound set by `b` may be limiting. For efficiency, if `b`
+yields whether upper bound set by `u` may be limiting. For efficiency, if `u`
 is multi-valued, it is considered as limiting even though all its values may
 all be equal to `+∞`.
 
 """
-is_bounded_above(b::Nothing) = false
-is_bounded_above(b::Number) = b < typemax(b)
-is_bounded_above(b::AbstractArray) = true
-is_bounded_above(b::AbstractUniformArray) = is_bounded_above(StructuredArrays.value(b))
+is_bounding_above(u::Nothing) = false
+is_bounding_above(u::AbstractArray) = true
+is_bounding_above(u::Number) = u < typemax(u)
+is_bounding_above(u::AbstractUniformArray) = is_bounding_above(value(u))
+is_bounding_above(Ω::BoundedSet) = is_bounding_above(Ω.upper)
 
 """
-    NumOptBase.is_bounded(Ω::NumOptBase.BoundedSet) -> below, above
+    NumOptBase.is_bounding(Ω::NumOptBase.BoundedSet) -> below, above
 
 yields whether bounds set by `Ω` may be limiting below and/or above. See
-[`NumOptBase.is_bounded_below`](@ref), [`NumOptBase.is_bounded_above`](@ref),
+[`NumOptBase.is_bounding_below`](@ref), [`NumOptBase.is_bounding_above`](@ref),
 and [`NumOptBase.BoundedSet`](@ref).
 
 """
-is_bounded(Ω::BoundedSet) = (is_bounded_below(Ω.lower),
-                             is_bounded_above(Ω.upper))
+is_bounding(Ω::BoundedSet) = (is_bounding_below(Ω), is_bounding_above(Ω))
 
 """
     project_variables!([E,] dst, x, Ω) -> dst
@@ -141,8 +177,7 @@ unspecified, `E = NumOptBase.engine(dst, x, Ω)` is assumed.
 function project_variables!(dst::AbstractArray{T,N},
                             x::AbstractArray{T,N},
                             Ω::BoundedSet{T,N}) where {T,N}
-    return project_variables!(
-        engine(dst, x, only_arrays(Ω.lower, Ω.upper)...), dst, x, Ω)
+    return project_variables!(engine(dst, x, Ω...), dst, x, Ω)
 end
 
 function project_variables!(::Type{E},
@@ -153,8 +188,8 @@ function project_variables!(::Type{E},
     # bounds, call an unsafe method with non-limiting bounds specified as
     # `nothing` so as to allow for dispatching on an optimized version based on
     # the bound types.
-    check_axes(dst, x, only_arrays(Ω.lower, Ω.upper)...)
-    below, above = is_bounded(Ω)
+    check_axes(dst, x, Ω...)
+    below, above = is_bounding(Ω)
     if below & above
         unsafe_project_variables!(E, dst, x, Ω.lower, Ω.upper)
     elseif below
@@ -189,8 +224,7 @@ function project_direction!(dst::AbstractArray{T,N},
                             pm::PlusOrMinus,
                             d::AbstractArray{T,N},
                             Ω::BoundedSet{T,N}) where {T,N}
-    return project_direction!(
-        engine(dst, x, d, only_arrays(Ω.lower, Ω.upper)...), dst, x, pm, d, Ω)
+    return project_direction!(engine(dst, x, d, Ω...), dst, x, pm, d, Ω)
 end
 
 function project_direction!(::Type{E},
@@ -200,8 +234,8 @@ function project_direction!(::Type{E},
                             d::AbstractArray{T,N},
                             Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
     # NOTE: See comments in `project_variables!`.
-    check_axes(dst, x, d, only_arrays(Ω.lower, Ω.upper)...)
-    below, above = is_bounded(Ω)
+    check_axes(dst, x, d, Ω...)
+    below, above = is_bounding(Ω)
     if below & above
         unsafe_project_direction!(E, dst, x, pm, d, Ω.lower, Ω.upper)
     elseif below
@@ -240,8 +274,7 @@ function unblocked_variables!(dst::AbstractArray{<:Real,N},
                               pm::PlusOrMinus,
                               d::AbstractArray{T,N},
                               Ω::BoundedSet{T,N}) where {T,N}
-    return unblocked_variables!(
-        engine(dst, x, d, only_arrays(Ω.lower, Ω.upper)...), dst, x, pm, d, Ω)
+    return unblocked_variables!(engine(dst, x, d, Ω...), dst, x, pm, d, Ω)
 end
 
 function unblocked_variables!(::Type{E},
@@ -251,8 +284,8 @@ function unblocked_variables!(::Type{E},
                               d::AbstractArray{T,N},
                               Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
     # NOTE: See comments in `project_variables!`.
-    check_axes(dst, x, d, only_arrays(Ω.lower, Ω.upper)...)
-    below, above = is_bounded(Ω)
+    check_axes(dst, x, d, Ω...)
+    below, above = is_bounding(Ω)
     if below & above
         unsafe_unblocked_variables!(E, dst, x, pm, d, Ω.lower, Ω.upper)
     elseif below
@@ -337,8 +370,7 @@ for func in (:linesearch_limits, :linesearch_stepmin, :linesearch_stepmax)
                        pm::PlusOrMinus,
                        d::AbstractArray{T,N},
                        Ω::BoundedSet{T,N}) where {T,N}
-            return $func(
-                engine(x, d, only_arrays(Ω.lower, Ω.upper)...), x, pm, d, Ω)
+            return $func(engine(x, d, Ω...), x, pm, d, Ω)
         end
 
         function $func(::Type{E},
@@ -347,8 +379,8 @@ for func in (:linesearch_limits, :linesearch_stepmin, :linesearch_stepmax)
                        d::AbstractArray{T,N},
                        Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
             # NOTE: See comments in `project_variables!`.
-            check_axes(x, d, only_arrays(Ω.lower, Ω.upper)...)
-            below, above = is_bounded(Ω)
+            check_axes(x, d, Ω...)
+            below, above = is_bounding(Ω)
             if below & above
                 $unsafe_func(E, x, pm, d, Ω.lower, Ω.upper)
             elseif below
@@ -376,8 +408,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
         function unsafe_project_variables!(::Type{<:$engine},
                                            dst::AbstractArray{T,N},
                                            x::AbstractArray{T,N},
-                                           lower::Bound{T,N},
-                                           upper::Bound{T,N}) where {T,N}
+                                           lower, upper) where {T,N}
             @vectorize $optim for i in eachindex(dst, x, only_arrays(lower, upper)...)
                 dst[i] = project(x[i], get_bound(lower, i), get_bound(upper, i))
             end
@@ -388,8 +419,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                            x::AbstractArray{T,N},
                                            pm::PlusOrMinus,
                                            d::AbstractArray{T,N},
-                                           lower::Bound{T,N},
-                                           upper::Bound{T,N}) where {T,N}
+                                           lower, upper) where {T,N}
             @vectorize $optim for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
                 dst[i] = project(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
             end
@@ -400,8 +430,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                              x::AbstractArray{T,N},
                                              pm::PlusOrMinus,
                                              d::AbstractArray{T,N},
-                                             lower::Bound{T,N},
-                                             upper::Bound{T,N}) where {B,T,N}
+                                             lower, upper) where {B,T,N}
             @vectorize $optim for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
                 dst[i] = is_unblocked(B, x[i], pm, d[i],
                                       get_bound(lower, i), get_bound(upper, i))
@@ -412,8 +441,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                           x::AbstractArray{T,N},
                                           pm::PlusOrMinus,
                                           d::AbstractArray{T,N},
-                                          lower::Bound{T,N},
-                                          upper::Bound{T,N}) where {T,N}
+                                          lower, upper) where {T,N}
             αmin, αmax = initial_stepmin(T), initial_stepmax(T)
             @vectorize $optim for i in eachindex(x, d, only_arrays(lower, upper)...)
                 αmin, αmax = update_limits(αmin, αmax, x[i], pm, d[i],
@@ -425,8 +453,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                            x::AbstractArray{T,N},
                                            pm::PlusOrMinus,
                                            d::AbstractArray{T,N},
-                                           lower::Bound{T,N},
-                                           upper::Bound{T,N}) where {T,N}
+                                           lower, upper) where {T,N}
             αmin = initial_stepmin(T)
             @vectorize $optim for i in eachindex(x, d, only_arrays(lower, upper)...)
                 αmin = update_stepmin(αmin, x[i], pm, d[i],
@@ -438,8 +465,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                            x::AbstractArray{T,N},
                                            pm::PlusOrMinus,
                                            d::AbstractArray{T,N},
-                                           lower::Bound{T,N},
-                                           upper::Bound{T,N}) where {T,N}
+                                           lower, upper) where {T,N}
             αmax = initial_stepmax(T)
             @vectorize $optim for i in eachindex(x, d, only_arrays(lower, upper)...)
                 αmax = update_stepmax(αmax, x[i], pm, d[i],

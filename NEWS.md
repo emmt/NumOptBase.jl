@@ -1,5 +1,11 @@
 # User visible changes in `NumOptBase`
 
+## Version 0.3.0
+
+- Instances of `BoundSet` have axes and their constructors have a better API.
+
+- Non-exported `is_bounded...` renamed as `is_bounding...`.
+
 ## Version 0.2.3
 
 - `isempty(Ω)` yields whether the bounded set `Ω` is empty, that is infeasible.

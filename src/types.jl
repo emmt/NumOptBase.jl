@@ -154,56 +154,63 @@ const Minus = typeof(-)
 const PlusOrMinus = Union{Plus,Minus}
 
 """
-    Bound{T,N}
+    BoundedSet(lower, upper) -> Ω
+    BoundedSet{T}(lower, upper) -> Ω
 
-is the type of argument suitable to represent a bound for `N`-dimensional
-variables of element type `T` in `NumOptBase` package.
+build an object `Ω` representing the set of variables bounded below by `lower`
+and bounded above by `upper`. Type parameter `T` is the element type of the
+variables; if omitted, it is inferred from the arguments. Arguments must be
+arrays with the same axes. Uniform arrays from the
+[`StructuredArray`](https://github.com/emmt/StructuredArrays.jl) package may be
+used to represent uniform or unlimiting bounds. For example:
 
-Bounds may be specified as:
-- `nothing` if the bound is unlimited;
-- a scalar if the bound is the same for all variables;
-- an array with the same axes as the variables.
+    lower = UniformArray(typemin(T), dims)   # no lower bound
+    lower = UniformArray(val, dims)          # all lower bounds equal to value `val`
+    upper = UniformArray(typemax(T), dims)   # no upper bound
+    upper = UniformArray(val, dims)          # all upper bounds equal to value `val`
 
-Owing to the complexity of managing all possibilities in the methods
-implementing bound constraints, bound specified as arrays *conformable* with
-the variables are not directly supported. The caller may extend the array of
-bound values to the same size as the variables. This may be done in a higher
-level interface.
+There is another constructor to facilitate the building of a bounded set:
 
-For simplicity and type-stability, only `nothing` is considered as unlimited
-bounds even though all lower (resp. upper) bound values may be `-∞` (resp.
-`+∞`).
+    BoundedSet{T}(vars::AbstractArray; lower=nothing, upper=nothing) -> Ω
+    BoundedSet(vars::AbstractArray; lower=nothing, upper=nothing) -> Ω
 
-"""
-const Bound{T,N} = Union{Nothing,T,AbstractArray{T,N}}
-
-"""
-    BoundedSet{T,N}(lower, upper) -> Ω
-
-yields an object `Ω` representing the set of variables bounded below by `lower`
-and bounded above by `upper`. Type parameter `T` and `N` are the floating-point
-type for computations and the number of dimensions of the variables.
+where `vars` is an array of the same element type, size, and axes as the
+variables to which the bounds apply, while keywords `lower` and `upper`
+respectively specify the lower and upper bounds, as an array, as a scalar value,
+or as `nothing` (the default) if the set is not bounded below or above. If type
+parameter `T` is omitted, `T = float(eltype(vars))` is assumed.
 
 Call `isempty(Ω)` to check whether `Ω` is not feasible. A true result is
-returned if `lower .≤ upper` does not hold evrywhere, in particular any `NaN`s
-in the bound values will result in an infeasible set.
+returned if `lower ≤ upper` does not hold element-wise, in particular any
+`NaN`s in the bound values will result in an infeasible set.
 
 Call `x ∈ Ω` to check whether `x` belongs to `Ω`.
 
-Converting a bounded set `Ω` to other type parameters `T` and/or `N` can be
-done by `convert` or by:
+A bounded set `Ω` is iterable:
+
+    lower, upper = Ω
+
+Converting a bounded set `Ω` to another type parameter `T` can be done by
+either of:
 
     BoundedSet{T}(Ω)
-    BoundedSet{T,N}(Ω)
+    convert(BoundedSet{T}, Ω)
 
 See [`NumOptBase.Bound`](@ref) for possible bound arguments.
 
 """
-struct BoundedSet{T,N,L<:Bound{T,N},U<:Bound{T,N}}
+struct BoundedSet{T,N,L<:AbstractArray{T,N},U<:AbstractArray{T,N}}
     lower::L
     upper::U
-    function BoundedSet{T,N,L,U}(lower::L, upper::U) where {T,N,L<:Bound{T,N},U<:Bound{T,N}}
-        # FIXME: Check whether set is feasible.
+    function BoundedSet{T}(lower::L, upper::U) where {T,N,
+                                                      L<:AbstractArray{T,N},
+                                                      U<:AbstractArray{T,N}}
+        isconcretetype(T) || throw(ArgumentError(
+            "variables must have concrete element type, got $T"))
+        T === float(T) || throw(ArgumentError(
+            "variables must have floating-point element type, got $T"))
+        axes(lower) == axes(upper) || throw(DimensionMismatch(
+            "bounds must have the same axes, got $(axes(lower)) and $(axes(upper))"))
         return new{T,N,L,U}(lower, upper)
     end
 end
