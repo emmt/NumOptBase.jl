@@ -10,7 +10,8 @@ if isdefined(Base, :get_extension)
         convert_multiplier,
         get_bound,
         is_unblocked,
-        project,
+        project_direction,
+        project_variable,
         αx, αxpy, αxmy, αxpβy
     import NumOptBase:
         engine,
@@ -39,7 +40,8 @@ else
         convert_multiplier,
         get_bound,
         is_unblocked,
-        project,
+        project_direction,
+        project_variable,
         αx, αxpy, αxmy, αxpβy
     import ..NumOptBase:
         engine,
@@ -284,7 +286,7 @@ function device_project_variables!(dst::CuDeviceArray{T,N},
                                    lower::CuDeviceBound{T,N},
                                    upper::CuDeviceBound{T,N}) where {T,N}
     @inbounds for i in @gpu_range(dst)
-        dst[i] = project(x[i], get_bound(lower, i), get_bound(upper, i))
+        dst[i] = project_variable(x[i], get_bound(lower, i), get_bound(upper, i))
     end
     return nothing # GPU kernels return nothing
 end
@@ -307,7 +309,7 @@ function device_project_direction!(dst::CuDeviceArray{T,N},
                                    lower::CuDeviceBound{T,N},
                                    upper::CuDeviceBound{T,N}) where {T,N}
     @inbounds for i in @gpu_range(dst)
-        dst[i] = project(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
+        dst[i] = project_direction(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
     end
     return nothing # GPU kernels return nothing
 end

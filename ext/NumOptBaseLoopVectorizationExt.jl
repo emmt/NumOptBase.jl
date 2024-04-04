@@ -11,7 +11,8 @@ if isdefined(Base, :get_extension)
         get_bound,
         is_unblocked,
         only_arrays,
-        project
+        project_direction,
+        project_variable
     import NumOptBase:
         norm1,
         norm2,
@@ -33,7 +34,8 @@ else
         get_bound,
         is_unblocked,
         only_arrays,
-        project
+        project_direction,
+        project_variable
     import ..NumOptBase:
         norm1,
         norm2,
@@ -200,7 +202,7 @@ end
                                            lower::TurboBound{T,N},
                                            upper::TurboBound{T,N}) where {T,N}
             @turbo for i in eachindex(dst, x, only_arrays(lower, upper)...)
-                dst[i] = project(x[i], get_bound(lower, i), get_bound(upper, i))
+                dst[i] = project_variable(x[i], get_bound(lower, i), get_bound(upper, i))
             end
             return nothing
         end
@@ -213,7 +215,7 @@ end
                                            lower::TurboBound{T,N},
                                            upper::TurboBound{T,N}) where {T,N}
             @turbo for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
-                dst[i] = project(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
+                dst[i] = project_direction(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
             end
             return nothing
         end

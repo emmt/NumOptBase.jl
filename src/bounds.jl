@@ -412,7 +412,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                            x::AbstractArray{T,N},
                                            lower, upper) where {T,N}
             @vectorize $optim for i in eachindex(dst, x, only_arrays(lower, upper)...)
-                dst[i] = project(x[i], get_bound(lower, i), get_bound(upper, i))
+                dst[i] = project_variable(x[i], get_bound(lower, i), get_bound(upper, i))
             end
             return nothing
         end
@@ -423,7 +423,7 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
                                            d::AbstractArray{T,N},
                                            lower, upper) where {T,N}
             @vectorize $optim for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
-                dst[i] = project(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
+                dst[i] = project_direction(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
             end
             return nothing
         end
@@ -506,10 +506,10 @@ end
 # simplify expressions depending on the type of the bounds. All these methods
 # are supposed to be in-lined.
 
-project(x, lower, upper) =
+project_variable(x, lower, upper) =
     project_above(project_below(x, lower), upper)
 
-project(x, pm::PlusOrMinus, d, lower, upper) =
+project_direction(x, pm::PlusOrMinus, d, lower, upper) =
     ifelse(is_unblocked(x, pm, d, lower, upper), d, zero(d))
 
 is_unblocked(x, pm::PlusOrMinus, d, lower, upper) =
