@@ -173,7 +173,7 @@ where `P` is the projection onto the feasible set `Ω` and `x` are the
 variables.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
-unspecified, `E = NumOptBase.engine(dst, x, Ω)` is assumed.
+unspecified, `E = NumOptBase.engine(dst, x, Ω...)` is assumed.
 
 """
 function project_variables!(dst::AbstractArray{T,N},
@@ -218,7 +218,7 @@ for some `ε > 0` and where `P` is the projection onto the feasible set
 For efficiency, it is assumed without checking that `x ∈ Ω` holds.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
-unspecified, `E = NumOptBase.engine(dst, x, d, Ω)` is assumed.
+unspecified, `E = NumOptBase.engine(dst, x, d, Ω...)` is assumed.
 
 """
 function project_direction!(dst::AbstractArray{T,N},
@@ -312,7 +312,7 @@ where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where 
 is either `+` or `-`.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
-unspecified, `E = NumOptBase.engine(dst, x, d, Ω)` is assumed.
+unspecified, `E = NumOptBase.engine(dst, x, d, Ω...)` is assumed.
 
 Output value `αₘᵢₙ` is the greatest nonnegative step length such that:
 
@@ -524,8 +524,9 @@ and for some `α > 0`. Optional argument `T` is the type of the result:
 `oneunit(T)` if true, `zero(T)` otherwise. `lower` and/or `upper` may be
 `nothing` if there is no such bound.
 
-If no variables can vary in the direction `-∇f(x)`, then the Karush-Kuhn-Tucker
-(K.K.T.) conditions hold for the bound constrained minimization of `f(x)`.
+If no variables can vary in the direction `±d = -∇f(x)`, then the
+Karush-Kuhn-Tucker (K.K.T.) conditions hold for the bound constrained
+minimization of `f(x)`.
 
 """
 can_vary(::Type{T}, x, pm::PlusOrMinus, d, lower, upper) where {T} =
