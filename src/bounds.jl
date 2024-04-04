@@ -99,8 +99,8 @@ Base.in(x, Ω::BoundedSet) = false
 function Base.in(x::AbstractArray{T,N}, Ω::BoundedSet{T,N}) where {T,N}
     l, u = Ω
     rngs = axes(x)
-    l isa Nothing || axes(l) == rngs || return false
-    u isa Nothing || axes(u) == rngs || return false
+    axes(l) == rngs || return false
+    axes(u) == rngs || return false
     below, above = is_bounding(l, u)
     if below & above
         # Test that the bounded set is feasible. According to IEEE rules for
