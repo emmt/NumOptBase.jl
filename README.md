@@ -271,13 +271,21 @@ which overwrites the destination `dₚ` and where `±` is either `+` or `-`.
 A closely related function is:
 
 ``` julia
-unblocked_variables!(a, x, ±, d, Ω)
+updatable_variables!(a, x, ±, d, Ω)
 ```
 
-which overwrites the destination `a` with ones where variables in `x ∈ Ω` are
-not blocked by the constraints implemented by `Ω` along the direction `±d` and
-zeros elsewhere. The projected direction `dₚ` and `a` are related by
-`dₚ = a .* d`.
+which overwrites the destination `a` with ones where variables in `x ∈ Ω` will
+vary along the direction `±d` while respecting the constraints implemented by
+`Ω` and zeros elsewhere. Hence, if `±d = -∇f(x)`, with `∇f(x)` the gradient of
+the objective function, the destination is set to zero everywhere the
+Karush-Kuhn-Tucker (K.K.T.) conditions are satisfied for the problem:
+
+```
+minₓ f(x) s.t. x ∈ Ω
+```
+
+In other words, `all(izero, a)` holds for (exact) convergence. Note that the
+projected direction `dₚ` and `a` are related by `dₚ = a .* d`.
 
 When line-searching, two specific values of the step length `α ≥ 0` are of
 interest:
@@ -304,7 +312,7 @@ variables are all the same for any `α` such that `α ≥ αₘₐₓ`. The valu
 αₘᵢₙ, αₘₐₓ = linesearch_limits(x, ±, d, Ω)
 ```
 
-Note that, for efficiency, `project_direction!`, `unblocked_variables!`,
+Note that, for efficiency, `project_direction!`, `updatable_variables!`,
 `linesearch_stepmin`, `linesearch_stepmax`, and `linesearch_limits` assume
 without checking that the input variables `x` are feasible, that is that `x ∈
 Ω` holds.
