@@ -36,6 +36,7 @@ export
 using TypeUtils, Unitless
 using ArrayTools: @assert_same_axes
 using StructuredArrays
+using StructuredArrays: value
 using LinearAlgebra
 isdefined(Base, :get_extension) || using Requires
 

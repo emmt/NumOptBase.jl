@@ -137,7 +137,7 @@ abstract type TurboLoopEngine <: SimdLoopEngine end
 is the type(s) of arrays suitable for `@turbo` optimized loops.
 
 """
-const TurboArray{T,N} = StridedArray{T,N}
+const TurboArray{T,N} = Union{StridedArray{T,N},AbstractUniformArray{T,N}}
 
 """
     NumOptBase.CudaEngine <: NumOptBase.Engine

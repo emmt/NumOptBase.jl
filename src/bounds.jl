@@ -1,5 +1,3 @@
-using StructuredArrays: value
-
 # BoundSet constructors.
 function BoundedSet(lower::AbstractArray{<:Any,N}, upper::AbstractArray{<:Any,N}) where {N}
     T = float(promote_type(eltype(lower), eltype(upper)))
