@@ -8,6 +8,10 @@ function BoundedSet{T}(lower::AbstractArray{<:Any,N}, upper::AbstractArray{<:Any
     return BoundedSet{T}(convert_eltype(T, lower), convert_eltype(T, upper))
 end
 
+function BoundedSet{T,N}(lower::AbstractArray{<:Any,N}, upper::AbstractArray{<:Any,N}) where {T,N}
+    return BoundedSet{T}(lower, upper)
+end
+
 function BoundedSet(vars::AbstractArray; kwds...)
     return BoundedSet{float(eltype(vars))}(vars; kwds...)
 end

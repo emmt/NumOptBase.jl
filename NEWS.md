@@ -2,7 +2,7 @@
 
 ## Version 0.3.0
 
-- Instances of `BoundSet` have axes and their constructors have a better API.
+- Constructors of `BoundSet` have a better API.
 
 - Non-exported `is_bounded...` renamed as `is_bounding...`.
 
