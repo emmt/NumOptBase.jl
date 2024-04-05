@@ -51,10 +51,13 @@ Base.convert(::Type{BoundedSet{T,N,L,U}}, Ω::BoundedSet) where {T,N,L<:Abstract
     BoundedSet{T,N}(convert(L, Ω.lower), convert(U, Ω.upper))
 
 Base.eltype(Ω::BoundedSet) = eltype(typeof(Ω))
-Base.eltype(::Type{<:BoundedSet{T,N}}) where {T,N} = T
+Base.eltype(::Type{<:BoundedSet{T,N}}) where {T,N} = AbstractArray{T,N}
 
-Base.ndims(Ω::BoundedSet) = ndims(typeof(Ω))
-Base.ndims(::Type{<:BoundedSet{T,N}}) where {T,N} = N
+Base.length(Ω::BoundedSet) = length(typeof(Ω))
+Base.length(::Type{<:BoundedSet}) = 2 # 1=>lower, 2=>upper
+
+Base.IteratorSize(Ω::BoundedSet) = Base.IteratorSize(typeof(Ω))
+Base.IteratorSize(::Type{<:BoundedSet}) = Base.HasLength()
 
 Base.iterate(Ω::BoundedSet, state::Int=1) =
     state == 1 ? (Ω.lower, 2) :

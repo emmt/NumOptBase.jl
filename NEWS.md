@@ -4,6 +4,13 @@
 
 - Constructors of `BoundSet` have a better API.
 
+- For any `Ω::BoundedSet`:
+  - `eltype(Ω)` yields `AbstractArray{T,N}` with `T` and `N` the element type
+     and number of dimensions of the variables `x` such that `x ∈ Ω`.
+  - `first(Ω)` and `last(Ω)` respectively yield `Ω.lower` and `Ω.upper`.
+  - `Ω` is an iterator such that `(Ω...,)` yields `(Ω.lower, Ω.upper)` and thus
+    with known `length(Ω) = 2`.
+
 - Non-exported `is_bounded...` renamed as `is_bounding...`.
 
 - Fix `x ∈ Ω` for`Ω::BoundedSet` to not throw exception and to also check that
