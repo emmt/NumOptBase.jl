@@ -615,42 +615,6 @@ for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
             end
             return nothing
         end
-        function unsafe_linesearch_limits(::Type{<:$engine},
-                                          x::AbstractArray{T,N},
-                                          pm::PlusOrMinus,
-                                          d::AbstractArray{T,N},
-                                          lower, upper) where {T,N}
-            αmin, αmax = initial_stepmin(T), initial_stepmax(T)
-            @vectorize $optim for i in eachindex(x, d, only_arrays(lower, upper)...)
-                αmin, αmax = update_limits(αmin, αmax, x[i], pm, d[i],
-                                           get_bound(lower, i), get_bound(upper, i))
-            end
-            return final_stepmin(αmin), final_stepmax(αmax)
-        end
-        function unsafe_linesearch_stepmin(::Type{<:$engine},
-                                           x::AbstractArray{T,N},
-                                           pm::PlusOrMinus,
-                                           d::AbstractArray{T,N},
-                                           lower, upper) where {T,N}
-            αmin = initial_stepmin(T)
-            @vectorize $optim for i in eachindex(x, d, only_arrays(lower, upper)...)
-                αmin = update_stepmin(αmin, x[i], pm, d[i],
-                                      get_bound(lower, i), get_bound(upper, i))
-            end
-            return final_stepmin(αmin)
-        end
-        function unsafe_linesearch_stepmax(::Type{<:$engine},
-                                           x::AbstractArray{T,N},
-                                           pm::PlusOrMinus,
-                                           d::AbstractArray{T,N},
-                                           lower, upper) where {T,N}
-            αmax = initial_stepmax(T)
-            @vectorize $optim for i in eachindex(x, d, only_arrays(lower, upper)...)
-                αmax = update_stepmax(αmax, x[i], pm, d[i],
-                                      get_bound(lower, i), get_bound(upper, i))
-            end
-            return final_stepmax(αmax)
-        end
     end
 end
 
