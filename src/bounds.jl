@@ -211,6 +211,22 @@ function project_variables!(::Type{E},
     return dst
 end
 
+# Scalar methods to project a variable.
+#
+# These methods are intended to be suitable for any type of arrays. We avoid
+# branching (hence use `ifelse`, `|`, or `&` instead of `?:`, `||`, or `&&`) to
+# not prevent loop vectorization and we very much rely on Julia optimizer to
+# simplify expressions depending on the type of the bounds. All these methods
+# are supposed to be in-lined.
+
+project_variable(x, lower, upper) = project_above(project_below(x, lower), upper)
+
+project_below(x, lower::Nothing) = x
+project_above(x, upper::Nothing) = x
+
+project_below(x::T, lower::T) where {T} = x < lower ? lower : x
+project_above(x::T, upper::T) where {T} = x > upper ? upper : x
+
 """
     project_direction!([E,] dst, x, ±, d, Ω) -> dst
 
@@ -256,6 +272,11 @@ function project_direction!(::Type{E},
     end
     return dst
 end
+
+# Scalar method to project a search direction (see notes about
+# `project_variable`).
+project_direction(x, pm::PlusOrMinus, d, lower, upper) =
+    ifelse(can_vary(x, pm, d, lower, upper), d, zero(d))
 
 """
     changing_variables!([E,] dst, x, ±, d, Ω) -> dst
@@ -305,6 +326,80 @@ function changing_variables!(::Type{E},
         fill!(dst, one(eltype(dst)))
     end
     return dst
+end
+
+"""
+    NumOptBase.can_vary([T=Bool,] x, ±, d, lower, upper)
+
+yields whether `x ± α⋅d != x` can hold within the `lower` and `upper` bounds
+and for some `α > 0`. Optional argument `T` is the type of the result:
+`oneunit(T)` if true, `zero(T)` otherwise. `lower` and/or `upper` may be
+`nothing` if there is no such bound.
+
+If no variables can vary in the direction `±d = -∇f(x)`, then the
+Karush-Kuhn-Tucker (K.K.T.) conditions hold for the bound constrained
+minimization of `f(x)`.
+
+"""
+can_vary(::Type{T}, x, pm::PlusOrMinus, d, lower, upper) where {T} =
+    ifelse(can_vary(x, pm, d, lower, upper), oneunit(T), zero(T))
+can_vary(x, pm::PlusOrMinus, d, lower, upper) =
+    can_decrease(x, pm, d, lower) |
+    can_increase(x, pm, d, upper)
+
+# Yield whether `lower ≤ x ± α⋅d < x` is possible for `α > 0`.
+can_decrease(x, pm::PlusOrMinus, d, lower) = is_negative(pm, d) & (x > lower)
+can_decrease(x, pm::PlusOrMinus, d, lower::Nothing) = is_negative(pm, d)
+
+# Yield whether `x < x ± α⋅d ≤ upper` is possible for `α > 0`.
+can_increase(x, pm::PlusOrMinus, d, upper) = is_positive(pm, d) & (x < upper)
+can_increase(x, pm::PlusOrMinus, d, upper::Nothing) = is_positive(pm, d)
+
+is_positive(         x) = x > zero(x)
+is_positive(::Plus,  x) = is_positive(x)
+is_positive(::Minus, x) = is_negative(x)
+
+is_negative(         x) = x < zero(x)
+is_negative(::Plus,  x) = is_negative(x)
+is_negative(::Minus, x) = is_positive(x)
+
+# Unsafe implementations for basic engines.
+for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
+                               (:inbounds,  AbstractArray, InBoundsLoopEngine),
+                               (:simd,      SimdArray,     SimdLoopEngine))
+    @eval begin
+        function unsafe_project_variables!(::Type{<:$engine},
+                                           dst::AbstractArray{T,N},
+                                           x::AbstractArray{T,N},
+                                           lower, upper) where {T,N}
+            @vectorize $optim for i in eachindex(dst, x, only_arrays(lower, upper)...)
+                dst[i] = project_variable(x[i], get_bound(lower, i), get_bound(upper, i))
+            end
+            return nothing
+        end
+        function unsafe_project_direction!(::Type{<:$engine},
+                                           dst::AbstractArray{T,N},
+                                           x::AbstractArray{T,N},
+                                           pm::PlusOrMinus,
+                                           d::AbstractArray{T,N},
+                                           lower, upper) where {T,N}
+            @vectorize $optim for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
+                dst[i] = project_direction(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
+            end
+            return nothing
+        end
+        function unsafe_changing_variables!(::Type{<:$engine},
+                                            dst::AbstractArray{B,N},
+                                            x::AbstractArray{T,N},
+                                            pm::PlusOrMinus,
+                                            d::AbstractArray{T,N},
+                                            lower, upper) where {B,T,N}
+            @vectorize $optim for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
+                dst[i] = can_vary(B, x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
+            end
+            return nothing
+        end
+    end
 end
 
 """
@@ -580,45 +675,6 @@ step_to_bounds(     x, ::Minus, d, l, u) = step_from_bounds(     x, d, l, u)
 step_to_lower_bound(x, ::Minus, d, l   ) = step_from_lower_bound(x, d, l   )
 step_to_upper_bound(x, ::Minus, d,    u) = step_from_upper_bound(x, d,    u)
 
-# Unsafe implementations for basic engines.
-for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
-                               (:inbounds,  AbstractArray, InBoundsLoopEngine),
-                               (:simd,      SimdArray,     SimdLoopEngine))
-    @eval begin
-        function unsafe_project_variables!(::Type{<:$engine},
-                                           dst::AbstractArray{T,N},
-                                           x::AbstractArray{T,N},
-                                           lower, upper) where {T,N}
-            @vectorize $optim for i in eachindex(dst, x, only_arrays(lower, upper)...)
-                dst[i] = project_variable(x[i], get_bound(lower, i), get_bound(upper, i))
-            end
-            return nothing
-        end
-        function unsafe_project_direction!(::Type{<:$engine},
-                                           dst::AbstractArray{T,N},
-                                           x::AbstractArray{T,N},
-                                           pm::PlusOrMinus,
-                                           d::AbstractArray{T,N},
-                                           lower, upper) where {T,N}
-            @vectorize $optim for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
-                dst[i] = project_direction(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
-            end
-            return nothing
-        end
-        function unsafe_changing_variables!(::Type{<:$engine},
-                                            dst::AbstractArray{B,N},
-                                            x::AbstractArray{T,N},
-                                            pm::PlusOrMinus,
-                                            d::AbstractArray{T,N},
-                                            lower, upper) where {B,T,N}
-            @vectorize $optim for i in eachindex(dst, x, d, only_arrays(lower, upper)...)
-                dst[i] = can_vary(B, x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
-            end
-            return nothing
-        end
-    end
-end
-
 """
     NumOptBase.get_bound(B, i)
 
@@ -637,58 +693,3 @@ end
 	@boundscheck checkbounds(B, i)
 	return @inbounds B[i]
 end
-
-# Scalar methods to project a variable or a search direction and to check
-# whether a variable is blocked.
-#
-# These methods are intended to be suitable for any type of arrays. We avoid
-# branching (hence use `ifelse`, `|`, or `&` instead of `?:`, `||`, or `&&`) to
-# not prevent loop vectorization and we very much rely on Julia optimizer to
-# simplify expressions depending on the type of the bounds. All these methods
-# are supposed to be in-lined.
-
-project_variable(x, lower, upper) = project_above(project_below(x, lower), upper)
-
-project_below(x, lower::Nothing) = x
-project_above(x, upper::Nothing) = x
-
-project_below(x::T, lower::T) where {T} = x < lower ? lower : x
-project_above(x::T, upper::T) where {T} = x > upper ? upper : x
-
-project_direction(x, pm::PlusOrMinus, d, lower, upper) =
-    ifelse(can_vary(x, pm, d, lower, upper), d, zero(d))
-
-"""
-    NumOptBase.can_vary([T=Bool,] x, ±, d, lower, upper)
-
-yields whether `x ± α⋅d != x` can hold within the `lower` and `upper` bounds
-and for some `α > 0`. Optional argument `T` is the type of the result:
-`oneunit(T)` if true, `zero(T)` otherwise. `lower` and/or `upper` may be
-`nothing` if there is no such bound.
-
-If no variables can vary in the direction `±d = -∇f(x)`, then the
-Karush-Kuhn-Tucker (K.K.T.) conditions hold for the bound constrained
-minimization of `f(x)`.
-
-"""
-can_vary(::Type{T}, x, pm::PlusOrMinus, d, lower, upper) where {T} =
-    ifelse(can_vary(x, pm, d, lower, upper), oneunit(T), zero(T))
-can_vary(x, pm::PlusOrMinus, d, lower, upper) =
-    can_decrease(x, pm, d, lower) |
-    can_increase(x, pm, d, upper)
-
-# Yield whether `lower ≤ x ± α⋅d < x` is possible for `α > 0`.
-can_decrease(x, pm::PlusOrMinus, d, lower) = is_negative(pm, d) & (x > lower)
-can_decrease(x, pm::PlusOrMinus, d, lower::Nothing) = is_negative(pm, d)
-
-# Yield whether `x < x ± α⋅d ≤ upper` is possible for `α > 0`.
-can_increase(x, pm::PlusOrMinus, d, upper) = is_positive(pm, d) & (x < upper)
-can_increase(x, pm::PlusOrMinus, d, upper::Nothing) = is_positive(pm, d)
-
-is_positive(         x) = x > zero(x)
-is_positive(::Plus,  x) = is_positive(x)
-is_positive(::Minus, x) = is_negative(x)
-
-is_negative(         x) = x < zero(x)
-is_negative(::Plus,  x) = is_negative(x)
-is_negative(::Minus, x) = is_positive(x)
