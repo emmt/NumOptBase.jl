@@ -407,26 +407,26 @@ for what in (:limits, :stepmin, :stepmax)
                               l::AbstractArray{T,N},
                               u::AbstractArray{T,N}) where {E<:Engine,T,N}
             below, above = is_bounding(l, u)
-            local r::$(rtype) = $initial(T)
+            r = $initial(T)::$(rtype)
             if below & above
-                r = mapreduce($filter(step_to_bounds(     pm)), $reduce, x, d, l, u; init=r)
+                r = mapreduce($filter(step_to_bounds(     pm)), $reduce, x, d, l, u; init=r)::$(rtype)
             elseif below
-                r = mapreduce($filter(step_to_lower_bound(pm)), $reduce, x, d, l   ; init=r)
+                r = mapreduce($filter(step_to_lower_bound(pm)), $reduce, x, d, l   ; init=r)::$(rtype)
             elseif above
-                r = mapreduce($filter(step_to_upper_bound(pm)), $reduce, x, d,    u; init=r)
+                r = mapreduce($filter(step_to_upper_bound(pm)), $reduce, x, d,    u; init=r)::$(rtype)
             end
-            return $final(r)
+            return $final(r)::$(rtype)
         end
     end
 end
 
-stepmin_initial(::Type{T}) where {T} = typemax(T)
-stepmax_initial(::Type{T}) where {T} = typemin(T)
-limits_initial(::Type{T}) where {T} = (stepmin_initial(T), stepmax_initial(T))
+@inline stepmin_initial(::Type{T}) where {T} = typemax(T)
+@inline stepmax_initial(::Type{T}) where {T} = typemin(T)
+@inline limits_initial(::Type{T}) where {T} = (stepmin_initial(T), stepmax_initial(T))
 
-stepmin_final(αₘᵢₙ) = αₘᵢₙ
-stepmax_final(αₘₐₓ) = αₘₐₓ ≥ zero(αₘₐₓ) ? αₘₐₓ : typemax(αₘₐₓ)
-limits_final((αₘᵢₙ, αₘₐₓ)) = (stepmin_final(αₘᵢₙ), stepmax_final(αₘₐₓ))
+@inline stepmin_final(αₘᵢₙ) = αₘᵢₙ
+@inline stepmax_final(αₘₐₓ) = αₘₐₓ ≥ zero(αₘₐₓ) ? αₘₐₓ : typemax(αₘₐₓ)
+@inline limits_final((αₘᵢₙ, αₘₐₓ)) = (stepmin_final(αₘᵢₙ), stepmax_final(αₘₐₓ))
 
 # The following functions yields the min./max. step size between `a` and `b`.
 #
