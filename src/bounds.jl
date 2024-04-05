@@ -512,6 +512,27 @@ for what in (:limits, :stepmin, :stepmax)
             end
             return $final(r)::$(rtype)
         end
+        function $unsafe_func(::Type{<:SimdLoopEngine}, x::AbstractArray{T,N},
+                              pm::PlusOrMinus, d::AbstractArray{T,N},
+                              l::AbstractArray{T,N},
+                              u::AbstractArray{T,N}) where {T,N}
+            below, above = is_bounding(l, u)
+            r = $initial(T)
+            if below & above
+                @inbounds @simd for i in eachindex(x, d, l, u)
+                    r = $reduce(r, step_to_bounds(x[i], pm, d[i], l[i], u[i]))
+                end
+            elseif below
+                @inbounds @simd for i in eachindex(x, d, l)
+                    r = $reduce(r, step_to_lower_bound(x[i], pm, d[i], l[i]))
+                end
+            elseif above
+                @inbounds @simd for i in eachindex(x, d, u)
+                    r = $reduce(r, step_to_upper_bound(x[i], pm, d[i], u[i]))
+                end
+            end
+            return $final(r)
+        end
     end
 end
 
@@ -531,9 +552,15 @@ end
 #       IEEE rules that a comparison involving a NaN always yields false.
 @inline stepmin_reduce(a::T, b::T) where {T} = (isnan(b) | (a < b)) ? a : b
 @inline stepmax_reduce(a::T, b::T) where {T} = (isnan(b) | (a > b)) ? a : b
-@inline limits_reduce((min1, max1), (min2, max2)) = (stepmin_reduce(min1, min2),
-                                                     stepmax_reduce(max1, max2))
+@inline limits_reduce((min1, max1)::Tuple{T,T}, (min2, max2)::Tuple{T,T}) where {T} =
+    (stepmin_reduce(min1, min2), stepmax_reduce(max1, max2))
+@inline limits_reduce(α::T, (αₘᵢₙ, αₘₐₓ)::Tuple{T,T}) where {T} =
+    (stepmin_reduce(αₘᵢₙ, α), stepmax_reduce(αₘₐₓ, α))
+@inline limits_reduce((αₘᵢₙ, αₘₐₓ)::Tuple{T,T}, α::T) where {T} =
+    (stepmin_reduce(αₘᵢₙ, α), stepmax_reduce(αₘₐₓ, α))
 
+# This method can be specialized
+bad_step(::Type{T}) where {T<:AbstractFloat} = T(NaN)
 
 """
     NumOptBase.step_choice(d, α₋, α₊, β = bad_step(T)) -> α
@@ -544,6 +571,7 @@ chooses the step to a bound according to the sign of `d`. The result is `α₋` 
 """
 @inline step_choice(d::T, neg::T, pos::T, bad::T = bad_step(T)) where {T} =
     ifelse(d < zero(d), neg, ifelse(d > zero(d), pos, bad))
+
 """
     NumOptBase.step_to_bounds(±) -> f
 
