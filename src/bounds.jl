@@ -534,6 +534,16 @@ end
 @inline limits_reduce((min1, max1), (min2, max2)) = (stepmin_reduce(min1, min2),
                                                      stepmax_reduce(max1, max2))
 
+
+"""
+    NumOptBase.step_choice(d, α₋, α₊, β = bad_step(T)) -> α
+
+chooses the step to a bound according to the sign of `d`. The result is `α₋` if
+`d < 0`, `α₊` if `d > 0`, `β` otherwise (`d` is zero or NaN).
+
+"""
+@inline step_choice(d::T, neg::T, pos::T, bad::T = bad_step(T)) where {T} =
+    ifelse(d < zero(d), neg, ifelse(d > zero(d), pos, bad))
 """
     NumOptBase.step_to_bounds(±) -> f
 
@@ -577,9 +587,8 @@ nonnegative step `α` to one of the bounds `l` or `u` depending on the sign of
 - otherwise, `α = NaN` is returned.
 
 """
-@inline step_to_bounds(x::T, d::T, l::T, u::T) where {T<:AbstractFloat} =
-    choice(d < zero(d), (l - x)/d,
-           d > zero(d), (u - x)/d, T(NaN))
+@inline step_to_bounds(x::T, d::T, l::T, u::T) where {T} =
+    step_choice(d, (l - x)/d, (u - x)/d)
 
 """
     NumOptBase.step_from_bounds(x, d, l, u) -> α
@@ -589,14 +598,13 @@ for the variable `x` such that `l ≤ x ≤ u` and search direction `d`, yield t
 nonnegative step `α` from one of the bounds `l` or `u` depending on the sign of
 `d`:
 
-- if `d > 0`, `α ≥ 0` such that `x - α*d = l` is returned;
 - if `d < 0`, `α ≥ 0` such that `x - α*d = u` is returned;
+- if `d > 0`, `α ≥ 0` such that `x - α*d = l` is returned;
 - otherwise, `α = NaN` is returned.
 
 """
-@inline step_from_bounds(x::T, d::T, l::T, u::T) where {T<:AbstractFloat} =
-    choice(d > zero(d), (x - l)/d,
-           d < zero(d), (x - u)/d, T(NaN))
+@inline step_from_bounds(x::T, d::T, l::T, u::T) where {T} =
+    step_choice(d, (x - u)/d, (x - l)/d)
 
 """
     NumOptBase.step_to_lower_bound(x, d, l) -> α
@@ -611,10 +619,8 @@ sign of `d`:
 - otherwise, `α = NaN` is returned.
 
 """
-@inline step_to_lower_bound(x::T, d::T, l::T) where {T<:AbstractFloat} =
-    choice(d < zero(d), (l - x)/d,
-           d > zero(d), typemax(T), T(NaN))
-
+@inline step_to_lower_bound(x::T, d::T, l::T) where {T} =
+    step_choice(d, (l - x)/d, typemax(T))
 
 """
     NumOptBase.step_from_lower_bound(x, d, l) -> α
@@ -624,14 +630,13 @@ for the variable `x` such that `l ≤ x` and search direction `d`, yield `+Inf`,
 `NaN`, or the nonnegative step `α` from the lower bound `l` depending on the
 sign of `d`:
 
-- if `d > 0`, `α ≥ 0` such that `x - α*d = l` is returned;
 - if `d < 0`, `α = +Inf` is returned;
+- if `d > 0`, `α ≥ 0` such that `x - α*d = l` is returned;
 - otherwise, `α = NaN` is returned.
 
 """
-@inline step_from_lower_bound(x::T, d::T, l::T) where {T<:AbstractFloat} =
-    choice(d > zero(d), (x - l)/d,
-           d < zero(d), typemax(T), T(NaN))
+@inline step_from_lower_bound(x::T, d::T, l::T) where {T} =
+    step_choice(d, typemax(T), (x - l)/d)
 
 """
     NumOptBase.step_to_upper_bound(x, d, u) -> α
@@ -641,14 +646,13 @@ for the variable `x` such that `x ≤ u` and search direction `d`, yield `+Inf`,
 `NaN`, or the nonnegative step `α` to the upper bound `u` depending on the
 sign of `d`:
 
-- if `d > 0`, `α ≥ 0` such that `x + α*d = u` is returned;
 - if `d < 0`, `α = +Inf` is returned;
+- if `d > 0`, `α ≥ 0` such that `x + α*d = u` is returned;
 - otherwise, `α = NaN` is returned.
 
 """
-@inline step_to_upper_bound(x::T, d::T, u::T) where {T<:AbstractFloat} =
-    choice(d > zero(d), (u - x)/d,
-           d < zero(d), typemax(T), T(NaN))
+@inline step_to_upper_bound(x::T, d::T, u::T) where {T} =
+    step_choice(d, typemax(T), (u - x)/d)
 
 """
     NumOptBase.step_from_upper_bound(x, d, u) -> α
@@ -663,9 +667,8 @@ sign of `d`:
 - otherwise, `α = NaN` is returned.
 
 """
-@inline step_from_upper_bound(x::T, d::T, u::T) where {T<:AbstractFloat} =
-    choice(d < zero(d), (x - u)/d,
-           d > zero(d), typemax(T), T(NaN))
+@inline step_from_upper_bound(x::T, d::T, u::T) where {T} =
+    step_choice(d, (x - u)/d, typemax(T))
 
 step_to_bounds(     x, ::Plus,  d, l, u) = step_to_bounds(     x, d, l, u)
 step_to_lower_bound(x, ::Plus,  d, l   ) = step_to_lower_bound(x, d, l   )
