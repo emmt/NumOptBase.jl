@@ -497,6 +497,7 @@ for what in (:limits, :stepmin, :stepmax)
             check_axes(x; dir=d, lower=Ω.lower, upper=Ω.upper)
             return $unsafe_func(E, x, pm, d, Ω...)
         end
+        # Default unsafe version using `mapreduce` for arrays like GPU ones.
         function $unsafe_func(::Type{E}, x::AbstractArray{T,N},
                               pm::PlusOrMinus, d::AbstractArray{T,N},
                               l::AbstractArray{T,N},
@@ -512,22 +513,27 @@ for what in (:limits, :stepmin, :stepmax)
             end
             return $final(r)::$(rtype)
         end
-        function $unsafe_func(::Type{<:SimdLoopEngine}, x::AbstractArray{T,N},
-                              pm::PlusOrMinus, d::AbstractArray{T,N},
-                              l::AbstractArray{T,N},
-                              u::AbstractArray{T,N}) where {T,N}
+    end
+    for (optim, engine) in ((:none,      LoopEngine),
+                            (:inbounds,  InBoundsLoopEngine),
+                            (:simd,      SimdLoopEngine))
+        # Default unsafe version using loops for indexable arrays.
+        @eval function $unsafe_func(::Type{<:$engine}, x::AbstractArray{T,N},
+                                    pm::PlusOrMinus, d::AbstractArray{T,N},
+                                    l::AbstractArray{T,N},
+                                    u::AbstractArray{T,N}) where {T,N}
             below, above = is_bounding(l, u)
             r = $initial(T)
             if below & above
-                @inbounds @simd for i in eachindex(x, d, l, u)
+                @vectorize $optim for i in eachindex(x, d, l, u)
                     r = $reduce(r, step_to_bounds(x[i], pm, d[i], l[i], u[i]))
                 end
             elseif below
-                @inbounds @simd for i in eachindex(x, d, l)
+                @vectorize $optim for i in eachindex(x, d, l)
                     r = $reduce(r, step_to_lower_bound(x[i], pm, d[i], l[i]))
                 end
             elseif above
-                @inbounds @simd for i in eachindex(x, d, u)
+                @vectorize $optim for i in eachindex(x, d, u)
                     r = $reduce(r, step_to_upper_bound(x[i], pm, d[i], u[i]))
                 end
             end
