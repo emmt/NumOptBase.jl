@@ -1,6 +1,7 @@
 module NumOptBaseCUDAExt
 
 if isdefined(Base, :get_extension)
+    using StructuredArrays
     using CUDA
     using NumOptBase
     using NumOptBase:
@@ -28,6 +29,7 @@ if isdefined(Base, :get_extension)
         unsafe_update!,
         zerofill!
 else
+    using ..StructuredArrays
     using ..CUDA
     using ..NumOptBase
     using ..NumOptBase:
@@ -56,9 +58,9 @@ else
         zerofill!
 end
 
-engine(args::CuArray...) = CudaEngine
+engine(::CuArray, ::Union{CuArray,AbstractUniformArray}...) = CudaEngine
 
-flatten(A::CuArray{<:Real,1}) = A
+flatten(A::CuArray{T,1}) where {T} = A
 @inline function flatten(A::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
     # NOTE: This is similar to `_derived_array` in `CUDA.jl/src/array.jl`.
     refcount = A.storage.refcount[]
@@ -110,233 +112,168 @@ end
 # `CuDeviceArray` and return `nothing` while the "host" version takes array
 # arguments of type `CuArray`.
 
-function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, x::CuArray)
-    function func!(f, dst, x)
-        for i in @gpu_range(dst)
-            @inbounds dst[i] = f(x[i])
+for n in 1:3
+    vars = (:x, :y, :z)[1:n] # list of variables
+    args = (:($(var)::AbstractArray) for var in vars) # list of arguments with types
+    vals = (:($(var)[i]) for var in vars) # list of values (indexed arguments)
+    @eval begin
+        function unsafe_gpu_map!(f::Function, dst::CuDeviceArray, $(args...))
+            @inbounds for i in @gpu_range(dst)
+                dst[i] = f($(vals...))
+            end
+            return nothing # GPU kernels return nothing
         end
-        return nothing # GPU kernels return nothing
+        function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, $(args...))
+            kernel = @cuda launch=false unsafe_gpu_map!(f, dst, $(vars...))
+            threads, blocks = gpu_config(kernel, dst)
+            kernel(f, dst, $(vars...); threads, blocks)
+            return nothing
+        end
     end
-    kernel = @cuda launch=false func!(f, dst, x)
-    threads, blocks = gpu_config(kernel, dst)
-    kernel(f, dst, x; threads, blocks)
-    return nothing
 end
 
-function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, x::CuArray, y::CuArray)
-    function func!(f, dst, x, y)
-        for i in @gpu_range(dst)
-            @inbounds dst[i] = f(x[i], y[i])
-        end
-        return nothing # GPU kernels return nothing
+function unsafe_gpu_αx!(dst::CuDeviceArray, α::Real, x::AbstractArray)
+    @inbounds for i in @gpu_range(dst)
+        dst[i] = α*x[i]
     end
-    kernel = @cuda launch=false func!(f, dst, x, y)
-    threads, blocks = gpu_config(kernel, dst)
-    kernel(f, dst, x, y; threads, blocks)
-    return nothing
+    return nothing # GPU kernels return nothing
 end
 
-function unsafe_map!(::Type{<:CudaEngine}, f::Function, dst::CuArray, x::CuArray, y::CuArray, z::CuArray)
-    function func!(f, dst, x, y, z)
-        for i in @gpu_range(dst)
-            @inbounds dst[i] = f(x[i], y[i], z[i])
-        end
-        return nothing # GPU kernels return nothing
+function unsafe_gpu_αxpy!(dst::CuDeviceArray, α::Real, x::AbstractArray, y::AbstractArray)
+    @inbounds for i in @gpu_range(y)
+        dst[i] = α*x[i] + y[i]
     end
-    kernel = @cuda launch=false func!(f, dst, x, y, z)
-    threads, blocks = gpu_config(kernel, dst)
-    kernel(f, dst, x, y, z; threads, blocks)
-    return nothing
+    return nothing # GPU kernels return nothing
 end
 
-function unsafe_map!(::Type{<:CudaEngine}, f::αx, dst::CuArray, x::CuArray)
-    function func!(dst, α, x)
-        for i in @gpu_range(dst)
-            @inbounds dst[i] = α*x[i]
-        end
-        return nothing # GPU kernels return nothing
+function unsafe_gpu_αxmy!(dst::CuDeviceArray, α::Real, x::AbstractArray, y::AbstractArray)
+    @inbounds for i in @gpu_range(y)
+        dst[i] = α*x[i] - y[i]
     end
-    kernel = @cuda launch=false func!(dst, f.α, x)
+    return nothing # GPU kernels return nothing
+end
+
+function unsafe_gpu_αxpβy!(dst::CuDeviceArray, α::Real, x::AbstractArray, β::Real, y::AbstractArray)
+    @inbounds for i in @gpu_range(dst)
+        dst[i] = α*x[i] + β*y[i]
+    end
+    return nothing # GPU kernels return nothing
+end
+
+function unsafe_map!(::Type{<:CudaEngine}, f::αx, dst::CuArray, x::AbstractArray)
+    kernel = @cuda launch=false unsafe_gpu_αx!(dst, f.α, x)
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, f.α, x; threads, blocks)
     return nothing
 end
 
-function unsafe_map!(::Type{<:CudaEngine}, f::αxpy, dst::CuArray, x::CuArray, y::CuArray)
-    function func!(dst, α, x, y)
-        for i in @gpu_range(y)
-            @inbounds dst[i] = α*x[i] + y[i]
-        end
-        return nothing # GPU kernels return nothing
-    end
-    kernel = @cuda launch=false func!(dst, f.α, x, y)
+function unsafe_map!(::Type{<:CudaEngine}, f::αxpy, dst::CuArray, x::AbstractArray, y::AbstractArray)
+    kernel = @cuda launch=false unsafe_gpu_αxpy!(dst, f.α, x, y)
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, f.α, x, y; threads, blocks)
     return nothing
 end
 
-function unsafe_map!(::Type{<:CudaEngine}, f::αxmy, dst::CuArray, x::CuArray, y::CuArray)
-    function func!(dst, α, x, y)
-        for i in @gpu_range(y)
-            @inbounds dst[i] = α*x[i] - y[i]
-        end
-        return nothing # GPU kernels return nothing
-    end
-    kernel = @cuda launch=false func!(dst, f.α, x, y)
+function unsafe_map!(::Type{<:CudaEngine}, f::αxmy, dst::CuArray, x::AbstractArray, y::AbstractArray)
+    kernel = @cuda launch=false unsafe_gpu_αxmy!(dst, f.α, x, y)
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, f.α, x, y; threads, blocks)
     return nothing
 end
 
-function unsafe_map!(::Type{<:CudaEngine}, f::αxpβy, dst::CuArray, x::CuArray, y::CuArray)
-    function func!(dst, α, x, β, y)
-        for i in @gpu_range(dst)
-            @inbounds dst[i] = α*x[i] + β*y[i]
-        end
-        return nothing # GPU kernels return nothing
-    end
-    kernel = @cuda launch=false func!(dst, f.α, x, f.β, y)
+function unsafe_map!(::Type{<:CudaEngine}, f::αxpβy, dst::CuArray, x::AbstractArray, y::AbstractArray)
+    kernel = @cuda launch=false unsafe_gpu_αxpβy!(dst, f.α, x, f.β, y)
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, f.α, x, f.β, y; threads, blocks)
     return nothing
 end
 
-function device_unsafe_update!(dst::CuDeviceArray,
-                               α::Real,
-                               x::CuDeviceArray)
+function unsafe_gpu_update!(dst::CuDeviceArray, α::Real, x::CuDeviceArray)
     @inbounds for i in @gpu_range(dst)
         dst[i] += α*x[i]
     end
     return nothing # GPU kernels return nothing
 end
 
-function device_unsafe_update!(dst::CuDeviceArray,
-                               α::Real,
-                               x::CuDeviceArray,
-                               y::CuDeviceArray)
+function unsafe_gpu_update!(dst::CuDeviceArray, α::Real, x::AbstractArray, y::AbstractArray)
     @inbounds for i in @gpu_range(dst)
         dst[i] += α*x[i]*y[i]
     end
     return nothing # GPU kernels return nothing
 end
 
-function unsafe_update!(::Type{<:CudaEngine},
-                        dst::CuArray,
-                        α::Real,
-                        x::CuArray)
-    kernel = @cuda launch=false device_unsafe_update!(dst, α, x)
+function unsafe_update!(::Type{<:CudaEngine}, dst::CuArray, α::Real, x::AbstractArray)
+    kernel = @cuda launch=false unsafe_gpu_update!(dst, α, x)
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, α, x; threads, blocks)
     return nothing
 end
 
-function unsafe_update!(::Type{<:CudaEngine},
-                        dst::CuArray,
-                        α::Real,
-                        x::CuArray,
-                        y::CuArray)
-    kernel = @cuda launch=false device_unsafe_update!(dst, α, x, y)
+function unsafe_update!(::Type{<:CudaEngine}, dst::CuArray, α::Real, x::AbstractArray, y::AbstractArray)
+    kernel = @cuda launch=false unsafe_gpu_update!(dst, α, x, y)
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, α, x, y; threads, blocks)
     return nothing
 end
 
-function unsafe_inner(::Type{<:CudaEngine},
-                      x::CuArray{T,N},
-                      y::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    #return mapreduce(inner, +, x, y; init=inner(zero(R),zero(R)))
+function unsafe_inner(::Type{<:CudaEngine}, x::CuArray, y::CuArray)
+    #return mapreduce(inner, +, x, y; init=inner(zero(eltype(x)),zero(eltype(y))))
     return flatten(x)'*flatten(y) # NOTE: this is faster than mapreduce
 end
 
-function unsafe_inner(::Type{<:CudaEngine},
-                      w::CuArray{R,N},
-                      x::CuArray{R,N},
-                      y::CuArray{R,N}) where {R<:Real,N}
-    return mapreduce(inner, +, w, x, y; init=inner(zero(R),zero(R),zero(R)))
+function unsafe_inner(::Type{<:CudaEngine}, w::CuArray, x::CuArray, y::CuArray)
+    return mapreduce(inner, +, w, x, y; init=inner(zero(eltype(w)),zero(eltype(x)),zero(eltype(y))))
 end
 
-function norm1(::Type{<:CudaEngine}, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    return mapreduce(norm1, +, x; init=norm1(zero(R)))
+function norm1(::Type{<:CudaEngine}, x::CuArray)
+    return mapreduce(norm1, +, x; init=norm1(zero(eltype(x))))
 end
 
-function norm2(::Type{<:CudaEngine}, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    return sqrt(mapreduce(abs2, +, x; init=abs2(zero(R))))
+function norm2(::Type{<:CudaEngine}, x::CuArray)
+    return sqrt(mapreduce(abs2, +, x; init=abs2(zero(eltype(x)))))
 end
 
-function norminf(::Type{<:CudaEngine}, x::CuArray{T,N}) where {R<:Real,T<:RealComplex{R},N}
-    return mapreduce(norminf, max, x; init=norminf(zero(R)))
+function norminf(::Type{<:CudaEngine}, x::CuArray)
+    return mapreduce(norminf, max, x; init=norminf(zero(eltype(x))))
 end
 
-# Type of arguments suitable to represent a bound for CUDA arrays.
-const CuBound{T,N} = Union{Nothing,T,CuArray{T,N}}
-const CuDeviceBound{T,N} = Union{Nothing,T,CuDeviceArray{T,N}}
-
-function device_project_variables!(dst::CuDeviceArray{T,N},
-                                   x::CuDeviceArray{T,N},
-                                   lower::CuDeviceBound{T,N},
-                                   upper::CuDeviceBound{T,N}) where {T,N}
+function unsafe_gpu_project_variables!(dst::CuDeviceArray, x, lower, upper)
     @inbounds for i in @gpu_range(dst)
         dst[i] = project_variable(x[i], get_bound(lower, i), get_bound(upper, i))
     end
     return nothing # GPU kernels return nothing
 end
 
-function unsafe_project_variables!(::Type{<:CudaEngine},
-                                   dst::CuArray{T,N},
-                                   x::CuArray{T,N},
-                                   lower::CuBound{T,N},
-                                   upper::CuBound{T,N}) where {T,N}
-    kernel = @cuda launch=false device_project_variables!(dst, x, lower, upper)
+function unsafe_project_variables!(::Type{<:CudaEngine}, dst::CuArray, x, lower, upper)
+    kernel = @cuda launch=false unsafe_gpu_project_variables!(dst, x, lower, upper)
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, x, lower, upper; threads, blocks)
     return nothing
 end
 
-function device_project_direction!(dst::CuDeviceArray{T,N},
-                                   x::CuDeviceArray{T,N},
-                                   pm::PlusOrMinus,
-                                   d::CuDeviceArray{T,N},
-                                   lower::CuDeviceBound{T,N},
-                                   upper::CuDeviceBound{T,N}) where {T,N}
+function unsafe_gpu_project_direction!(dst::CuDeviceArray, x, pm::PlusOrMinus, d, lower, upper)
     @inbounds for i in @gpu_range(dst)
         dst[i] = project_direction(x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
     end
     return nothing # GPU kernels return nothing
 end
 
-function unsafe_project_direction!(::Type{<:CudaEngine},
-                                   dst::CuArray{T,N},
-                                   x::CuArray{T,N},
-                                   pm::PlusOrMinus,
-                                   d::CuArray{T,N},
-                                   lower::CuBound{T,N},
-                                   upper::CuBound{T,N}) where {T,N}
-    kernel = @cuda launch=false device_project_direction!(dst, x, pm, d, lower, upper)
+function unsafe_project_direction!(::Type{<:CudaEngine}, dst::CuArray, x, pm::PlusOrMinus, d, lower, upper)
+    kernel = @cuda launch=false unsafe_gpu_project_direction!(dst, x, pm, d, lower, upper)
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, x, pm, d, lower, upper; threads, blocks)
     return nothing
 end
 
-function device_changing_variables!(dst::CuDeviceArray{B,N},
-                                    x::CuDeviceArray{T,N},
-                                    pm::PlusOrMinus,
-                                    d::CuDeviceArray{T,N},
-                                    lower::CuDeviceBound{T,N},
-                                    upper::CuDeviceBound{T,N}) where {B,T,N}
+function unsafe_gpu_changing_variables!(dst::CuDeviceArray, x, pm::PlusOrMinus, d, lower, upper)
     @inbounds for i in @gpu_range(dst)
-        dst[i] = can_vary(B, x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
+        dst[i] = can_vary(eltype(dst), x[i], pm, d[i], get_bound(lower, i), get_bound(upper, i))
     end
     return nothing # GPU kernels return nothing
 end
 
-function unsafe_changing_variables!(::Type{<:CudaEngine},
-                                    dst::CuArray{B,N},
-                                    x::CuArray{T,N},
-                                    pm::PlusOrMinus,
-                                    d::CuArray{T,N},
-                                    lower::CuBound{T,N},
-                                    upper::CuBound{T,N}) where {B,T,N}
-    kernel = @cuda launch=false device_changing_variables!(dst, x, pm, d, lower, upper)
+function unsafe_changing_variables!(::Type{<:CudaEngine}, dst::CuArray, x, pm::PlusOrMinus, d, lower, upper)
+    kernel = @cuda launch=false unsafe_gpu_changing_variables!(dst, x, pm, d, lower, upper)
     threads, blocks = gpu_config(kernel, dst)
     kernel(dst, x, pm, d, lower, upper; threads, blocks)
     return nothing
