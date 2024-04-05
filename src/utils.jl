@@ -59,7 +59,7 @@ check_axes(name::AbstractString, arr::AbstractArray, ref::AbstractArray) =
 
 function check_axes(name::AbstractString, arr::AbstractArray,
                     rngs::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
-    axes(arr) == rgns || throw(DimensionMismatch(pretty(
+    axes(arr) == rngs || throw(DimensionMismatch(pretty(
         name, " has incompatible axes, got ", axes(arr), " instead of ", rngs)))
     nothing
 end
@@ -70,10 +70,10 @@ function check_axes(x::AbstractArray;
                     lower::Union{AbstractArray,Nothing} = nothing,
                     upper::Union{AbstractArray,Nothing} = nothing,)
     rngs = axes(x)
-    dest  isa Nothing || check_axes("destination array", dest,    rngs)
-    dir   isa Nothing || check_axes("search direction",  dir,     rngs)
-    lower isa Nothing || check_axes("lower bound",       Ω.lower, rngs)
-    upper isa Nothing || check_axes("upper bound",       Ω.upper, rngs)
+    dest  isa Nothing || check_axes("destination array", dest,  rngs)
+    dir   isa Nothing || check_axes("search direction",  dir,   rngs)
+    lower isa Nothing || check_axes("lower bound",       lower, rngs)
+    upper isa Nothing || check_axes("upper bound",       upper, rngs)
     nothing
 end
 

@@ -83,8 +83,8 @@ end
 # Test that the bounds give a feasible set. According to IEEE rules for
 # comparisons, it will be considered as empty if some bounds are NaN's.
 feasible_bounds(lower::Nothing, upper::Nothing) = true
-feasible_bounds(lower::AbstractArray, upper::Nothing) = any(isnan, lower)
-feasible_bounds(lower::Nothing, upper::AbstractArray) = any(isnan, upper)
+feasible_bounds(lower::AbstractArray, upper::Nothing) = !any(isnan, lower)
+feasible_bounds(lower::Nothing, upper::AbstractArray) = !any(isnan, upper)
 feasible_bounds(lower::AbstractArray, upper::AbstractArray) =
     axes(lower) == axes(upper) && unsafe_feasible_bounds(lower, upper)
 
