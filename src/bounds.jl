@@ -386,7 +386,7 @@ for what in (:limits, :stepmin, :stepmax)
     initial = Symbol(what,"_initial")
     reduce = Symbol(what,"_reduce")
     final = Symbol(what,"_final")
-    filter = what === :limits ? :Twin : :identity
+    filter = what === :limits ? :Twice : :identity
     @eval begin
         function $func(x::AbstractArray{T,N},
                        pm::PlusOrMinus, d::AbstractArray{T,N},
@@ -424,7 +424,7 @@ stepmax_initial(::Type{T}) where {T} = typemin(T)
 limits_initial(::Type{T}) where {T} = (stepmin_initial(T), stepmax_initial(T))
 
 stepmin_final(αₘᵢₙ) = αₘᵢₙ
-stepmax_final(αₘₐₓ) = αₘₐₓ ≥ zero(αₘₐₓ) ? αₘₐₓ : zero(αₘₐₓ)
+stepmax_final(αₘₐₓ) = αₘₐₓ ≥ zero(αₘₐₓ) ? αₘₐₓ : typemax(αₘₐₓ)
 limits_final((αₘᵢₙ, αₘₐₓ)) = (stepmin_final(αₘᵢₙ), stepmax_final(αₘₐₓ))
 
 # The following functions yields the min./max. step size between `a` and `b`.
