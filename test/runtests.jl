@@ -536,11 +536,11 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         @test @inferred(last(Ω)) === Ω.upper
         @test @inferred(length(Ω)) === 2
         @test (Ω...,) === (first(Ω), last(Ω))
-        @test is_bounding(Ω) === (below, above)
-        @test isempty(Ω) == mapreduce(>, |, L, U; init=false)
-        @test (x0 ∈ Ω) == all((x0 .≥ Ω.lower).&(x0 .≤ Ω.upper))
-        @test (x1 ∈ Ω) == all((x1 .≥ Ω.lower).&(x1 .≤ Ω.upper))
-        @test (x2 ∈ Ω) == all((x2 .≥ Ω.lower).&(x2 .≤ Ω.upper))
+        @test is_bounding(Ω) === (below, above) # quick answer
+        @test isempty(Ω) == !all(Ω.lower .≤ Ω.upper)
+        @test (x0 ∈ Ω) == all((x0 .≥ Ω.lower).&(x0 .≤ Ω.upper)) # accurate answer
+        @test (x1 ∈ Ω) == all((x1 .≥ Ω.lower).&(x1 .≤ Ω.upper)) # accurate answer
+        @test (x2 ∈ Ω) == all((x2 .≥ Ω.lower).&(x2 .≤ Ω.upper)) # accurate answer
         if !isempty(Ω)
             P_x0 = @inferred(P(x0))
             @test P_x0 ∈ Ω
@@ -563,45 +563,11 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         @test eltype(Ωp) === AbstractArray{Tp,N}
     end
 
-    #=
-    @testset "Conversion of bounded sets (Ω = $B)" for B in keys(bounds)
-        atol = 0
-        rtol = 2eps(Float32)
-        T₁ = Float64
-        T₂ = Float32
-        Ω₁ = @inferred BoundedSet{T₁,N}(bounds[B]...)
-        Ω₂ = @inferred BoundedSet{T₂,N}(bounds[B]...)
-        Ω₃ = @inferred BoundedSet{T₂,N}(Ω₁)
-        Ω₄ = @inferred convert(BoundedSet{T₁,N}, Ω₂)
-        @test BoundedSet{T₁,N}(Ω₁) === Ω₁
-        @test BoundedSet{T₂,N}(Ω₂) === Ω₂
-        @test convert(BoundedSet{T₁,N}, Ω₁) === Ω₁
-        @test convert(BoundedSet{T₂,N}, Ω₂) === Ω₂
-        @test Ω₃ isa BoundedSet{T₂,N}
-        @test Ω₄ isa BoundedSet{T₁,N}
-        if bounds[B][1] === nothing
-            @test Ω₃.lower === Ω₂.lower === nothing
-            @test Ω₄.lower === Ω₁.lower === nothing
-        else
-            @test Ω₃.lower ≈ Ω₂.lower atol=atol rtol=rtol
-            @test Ω₄.lower ≈ Ω₁.lower atol=atol rtol=rtol
-        end
-        if bounds[B][2] === nothing
-            @test Ω₃.upper === Ω₂.upper === nothing
-            @test Ω₄.upper === Ω₁.upper === nothing
-        else
-            @test Ω₃.upper ≈ Ω₂.upper atol=atol rtol=rtol
-            @test Ω₄.upper ≈ Ω₁.upper atol=atol rtol=rtol
-        end
-    end
-
-    @testset "Project variables, etc. ($T, $(pm)d, Ω = $B)" for T in floats,
-        pm in (+, -), B in keys(bounds)
-
-        Ω = @inferred BoundedSet{T,N}(bounds[B]...)
-        @test Ω isa BoundedSet{T,N}
-        P = @inferred Projector(Ω)
+    @testset "Project variables, etc. ($T, $(pm)d, Ω = $B)" for T in floats, pm in (+, -), B in keys(bounds)
         x0 = Array{T}(reshape(vals, dims))
+        l, u = bounds[B]
+        Ω = @inferred BoundedSet(x0; lower=l, upper=u)
+        P = @inferred Projector(Ω)
         x = @inferred Generic.project_variables!(similar(x0), x0, Ω) # make sure x is feasible
         @test x isa Array{T,N}
         y = similar(x)
@@ -618,12 +584,11 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         @test y == @inferred Generic.project_direction!(z, x, pm, d, Ω)
         @test y === @inferred changing_variables!(y, x, pm, d, Ω)
         @test y == @inferred Generic.changing_variables!(z, x, pm, d, Ω)
-        amin, amax = @inferred linesearch_limits(x, pm, d, Ω)
-        @test  amin        == @inferred linesearch_stepmin(x, pm, d, Ω)
-        @test        amax  == @inferred linesearch_stepmax(x, pm, d, Ω)
+        #amin, amax = @inferred linesearch_limits(x, pm, d, Ω)
+        amin = @inferred linesearch_stepmin(x, pm, d, Ω)
+        amax = @inferred linesearch_stepmax(x, pm, d, Ω)
         @test (amin, amax) == @inferred linesearch_limits(x, pm, d, Ω)
     end
-    =#
 
 end
 nothing
