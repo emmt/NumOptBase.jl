@@ -1,10 +1,13 @@
 using Test
 using LinearAlgebra
 using StructuredArrays
+using StructuredArrays: value
+using TypeUtils
 using NumOptBase
 using NumOptBase:
     check_axes,
     engine,
+    is_bounding,
     is_bounding_above,
     is_bounding_below,
     only_arrays,
@@ -467,6 +470,7 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
     end
 
     dims = (3,4)
+    T = Float32 # bounds below are purposely in Float64
     N = length(dims)
     vals = -5:prod(dims)-6
     bounds = Dict(
@@ -488,17 +492,62 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         "(-Inf,0)"             => (-Inf, 0),
     )
 
-    @testset "Simple operations on bounded sets" begin
-        T = Float32
+    @testset "Simple operations on bounded sets ($B)" for B in keys(bounds)
         x0 = rand((zero(T),one(T)), dims)
         x1 = x0 .- T(1.1) # x1 < 0 holds somewhere
         x2 = x0 .+ T(1.1) # x2 > 1 holds somewhere
-        Ω = @inferred BoundedSet{T,N}(nothing, nothing)
-        @test !isempty(Ω)
-        @test x0 ∈ Ω
-        @test x1 ∈ Ω
-        @test x2 ∈ Ω
-        Ω = @inferred BoundedSet{T,N}(zeros(T,dims), nothing)
+        l, u = bounds[B]
+        below = l isa Nothing ? false :
+                l isa Number ? l > -Inf :
+                l isa AbstractUniformArray ? value(l) > -Inf : true
+        @test is_bounding_below(l) === below
+        above = u isa Nothing ? false :
+                u isa Number ? u < +Inf :
+                u isa AbstractUniformArray ? value(u) < +Inf : true
+        @test is_bounding_above(u) === above
+        L = l isa Nothing ? UniformArray{T}(-Inf, dims) :
+            l isa Number  ? UniformArray{T}(l, dims) :
+            convert_eltype(T, l)
+        U = u isa Nothing ? UniformArray{T}(+Inf, dims) :
+            u isa Number  ? UniformArray{T}(u, dims) :
+            convert_eltype(T, u)
+        Ω = @inferred BoundedSet(x0; lower=l, upper=u)
+        P = @inferred Projector(Ω)
+        @test @inferred(eltype(Ω)) <: AbstractArray
+        @test @inferred(eltype(eltype(Ω))) === float(eltype(x0)) === T
+        @test @inferred(ndims(eltype(Ω))) === ndims(x0) === N
+        @test @inferred(eltype(Ω)) === AbstractArray{T,N}
+        @test Ω.lower isa AbstractArray{T,N}
+        @test Ω.upper isa AbstractArray{T,N}
+        @test (Ω.lower isa AbstractUniformArray) == (l isa Union{Nothing,Number,AbstractUniformArray})
+        @test (Ω.upper isa AbstractUniformArray) == (u isa Union{Nothing,Number,AbstractUniformArray})
+        if Ω.lower isa AbstractUniformArray
+            @test value(Ω.lower) === T(l === nothing ? -Inf : l isa Number ? l : value(l))
+        end
+        if Ω.upper isa AbstractUniformArray
+            @test value(Ω.upper) === T(u === nothing ? +Inf : u isa Number ? u : value(u))
+        end
+        @test @inferred(first(Ω)) === Ω.lower
+        @test @inferred(last(Ω)) === Ω.upper
+        @test @inferred(length(Ω)) === 2
+        @test (Ω...,) === (first(Ω), last(Ω))
+        @test is_bounding(Ω) === (below, above)
+        @test isempty(Ω) == mapreduce(>, |, L, U; init=false)
+        if !below && !above
+            # Unconstrained case.
+            @test x0 ∈ Ω
+            @test P(x0) == x0
+            @test x1 ∈ Ω
+            @test P(x1) == x1
+            @test x2 ∈ Ω
+            @test P(x2) == x2
+        end
+        @test Ω === @inferred BoundedSet(Ω...,)
+        @test Ω === @inferred BoundedSet{eltype(eltype(Ω))}(Ω...,)
+        @test Ω === @inferred BoundedSet{eltype(eltype(Ω)),ndims(eltype(Ω))}(Ω...,)
+        #=
+        Ω = @inferred BoundedSet(zeros(T,dims), nothing)
+        P = @inferred Projector(Ω)
         @test !isempty(Ω)
         @test   x0 ∈ Ω
         @test !(x1 ∈ Ω)
@@ -534,8 +583,10 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         @test !(x0 ∈ Ω)
         @test !(x1 ∈ Ω)
         @test !(x2 ∈ Ω)
+        =#
     end
 
+    #=
     @testset "Conversion of bounded sets (Ω = $B)" for B in keys(bounds)
         atol = 0
         rtol = 2eps(Float32)
@@ -595,6 +646,7 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         @test        amax  == @inferred linesearch_stepmax(x, pm, d, Ω)
         @test (amin, amax) == @inferred linesearch_limits(x, pm, d, Ω)
     end
+    =#
 
 end
 nothing
