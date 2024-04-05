@@ -40,9 +40,9 @@ end
 BoundedSet(Ω::BoundedSet) = Ω
 BoundedSet{T}(Ω::BoundedSet{T}) where {T} = Ω
 BoundedSet{T}(Ω::BoundedSet) where {T} = BoundedSet(convert_eltype(T, Ω.lower), convert_eltype(T, Ω.upper))
-BoundedSet{T,N}(Ω::BoundedSet{<:Any,N}) where {T,N} = Ω
+BoundedSet{T,N}(Ω::BoundedSet{<:Any,N}) where {T,N} = BoundedSet{T}(Ω)
 
-Base.convert(::Type{BoundedSet}, Ω::BoundedSet) = BoundedSet{T}(Ω)
+Base.convert(::Type{BoundedSet}, Ω::BoundedSet) = BoundedSet(Ω)
 Base.convert(::Type{BoundedSet{T}}, Ω::BoundedSet) where {T} = BoundedSet{T}(Ω)
 Base.convert(::Type{BoundedSet{T,N}}, Ω::BoundedSet) where {T,N} = BoundedSet{T,N}(Ω)
 Base.convert(::Type{BoundedSet{T,N,L}}, Ω::BoundedSet) where {T,N,L<:AbstractArray{T,N}} =

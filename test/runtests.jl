@@ -470,8 +470,8 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
     end
 
     dims = (3,4)
-    T = Float32 # bounds below are purposely in Float64
     N = length(dims)
+    T = Float32 # bounds in list are purposely in Float64 or Int
     vals = -5:prod(dims)-6
     bounds = Dict(
         # Unconstrained cases:
@@ -488,14 +488,19 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         "([0,...],+Inf)"       => (zeros(dims), +Inf),
         "([0,...],[+Inf,...])" => (zeros(dims), fill(+Inf,dims)),
         # Bounded above:
-        "(nothing,0)"          => (nothing, 0),
-        "(-Inf,0)"             => (-Inf, 0),
+        "(nothing,1)"          => (nothing, 1),
+        "(-Inf,1)"             => (-Inf, 1),
+        # Bounded below and above:
+        "(0,1)"                => (0, 1),
     )
 
     @testset "Simple operations on bounded sets ($B)" for B in keys(bounds)
+        # Lower bound, if any, is 0, upper bound, if any is 1. Build 3 arrays
+        # x0, x1, and 2 so that x0 ∈ Ω always holds, x1 ∈ Ω only holds if
+        # unbounded below, and x1 ∈ Ω only holds if unbounded above.
         x0 = rand((zero(T),one(T)), dims)
-        x1 = x0 .- T(1.1) # x1 < 0 holds somewhere
-        x2 = x0 .+ T(1.1) # x2 > 1 holds somewhere
+        (x1 = copy(x0))[[3,5,8]] .= -1 # x1 < 0 holds somewhere
+        (x2 = copy(x0))[[2,7,8]] .=  2 # x2 > 1 holds somewhere
         l, u = bounds[B]
         below = l isa Nothing ? false :
                 l isa Number ? l > -Inf :
@@ -533,57 +538,29 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         @test (Ω...,) === (first(Ω), last(Ω))
         @test is_bounding(Ω) === (below, above)
         @test isempty(Ω) == mapreduce(>, |, L, U; init=false)
-        if !below && !above
-            # Unconstrained case.
-            @test x0 ∈ Ω
-            @test P(x0) == x0
-            @test x1 ∈ Ω
-            @test P(x1) == x1
-            @test x2 ∈ Ω
-            @test P(x2) == x2
+        @test (x0 ∈ Ω) == all((x0 .≥ Ω.lower).&(x0 .≤ Ω.upper))
+        @test (x1 ∈ Ω) == all((x1 .≥ Ω.lower).&(x1 .≤ Ω.upper))
+        @test (x2 ∈ Ω) == all((x2 .≥ Ω.lower).&(x2 .≤ Ω.upper))
+        if !isempty(Ω)
+            P_x0 = @inferred(P(x0))
+            @test P_x0 ∈ Ω
+            @test (P_x0 == x0) == (x0 ∈ Ω)
+            P_x1 = @inferred(P(x1))
+            @test P_x1 ∈ Ω
+            @test (P_x1 == x1) == (x1 ∈ Ω)
+            P_x2 = @inferred(P(x2))
+            @test P_x2 ∈ Ω
+            @test (P_x2 == x2) == (x2 ∈ Ω)
         end
         @test Ω === @inferred BoundedSet(Ω...,)
         @test Ω === @inferred BoundedSet{eltype(eltype(Ω))}(Ω...,)
         @test Ω === @inferred BoundedSet{eltype(eltype(Ω)),ndims(eltype(Ω))}(Ω...,)
-        #=
-        Ω = @inferred BoundedSet(zeros(T,dims), nothing)
-        P = @inferred Projector(Ω)
-        @test !isempty(Ω)
-        @test   x0 ∈ Ω
-        @test !(x1 ∈ Ω)
-        @test   x2 ∈ Ω
-        Ω.lower[2] = NaN
-        @test isempty(Ω)
-        @test !(x0 ∈ Ω)
-        @test !(x1 ∈ Ω)
-        @test !(x2 ∈ Ω)
-        Ω = @inferred BoundedSet{T,N}(nothing, ones(T,dims))
-        @test !isempty(Ω)
-        @test   x0 ∈ Ω
-        @test   x1 ∈ Ω
-        @test !(x2 ∈ Ω)
-        Ω.upper[2] = NaN
-        @test isempty(Ω)
-        @test !(x0 ∈ Ω)
-        @test !(x1 ∈ Ω)
-        @test !(x2 ∈ Ω)
-        Ω = @inferred BoundedSet{T,N}(zeros(T,dims), ones(T,dims))
-        @test !isempty(Ω)
-        @test   x0 ∈ Ω
-        @test !(x1 ∈ Ω)
-        @test !(x2 ∈ Ω)
-        Ω.lower[2] = NaN
-        @test isempty(Ω)
-        @test !(x0 ∈ Ω)
-        @test !(x1 ∈ Ω)
-        @test !(x2 ∈ Ω)
-        Ω.lower[2] = 0 # restore lower bound
-        Ω.upper[2] = NaN
-        @test isempty(Ω)
-        @test !(x0 ∈ Ω)
-        @test !(x1 ∈ Ω)
-        @test !(x2 ∈ Ω)
-        =#
+        @test Ω === @inferred convert(BoundedSet, Ω)
+        @test Ω === @inferred convert(BoundedSet{T}, Ω)
+        @test Ω === @inferred convert(BoundedSet{T,N}, Ω)
+        Tp = (T === Float32 ? Float64 : Float32)
+        Ωp = @inferred convert(BoundedSet{Tp}, Ω)
+        @test eltype(Ωp) === AbstractArray{Tp,N}
     end
 
     #=
