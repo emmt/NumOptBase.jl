@@ -387,6 +387,7 @@ for what in (:limits, :stepmin, :stepmax)
     reduce = Symbol(what,"_reduce")
     final = Symbol(what,"_final")
     filter = what === :limits ? :Twice : :identity
+    rtype = what === :limits ? :(Tuple{T,T}) : :(T)
     @eval begin
         function $func(x::AbstractArray{T,N},
                        pm::PlusOrMinus, d::AbstractArray{T,N},
@@ -406,7 +407,7 @@ for what in (:limits, :stepmin, :stepmax)
                               l::AbstractArray{T,N},
                               u::AbstractArray{T,N}) where {E<:Engine,T,N}
             below, above = is_bounding(l, u)
-            r = $initial(T)
+            local r::$(rtype) = $initial(T)
             if below & above
                 r = mapreduce($filter(step_to_bounds(     pm)), $reduce, x, d, l, u; init=r)
             elseif below
