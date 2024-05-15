@@ -1,7 +1,7 @@
 name = "NumOptBase"
 uuid = "19474dce-faed-4c37-be94-3eba84df10eb"
 authors = ["Éric Thiébaut <eric.thiebaut@univ-lyon1.fr> and contributors"]
-version = "0.2.3"
+version = "0.3.0"
 
 [deps]
 ArrayTools = "1dc0ca97-c5ce-4e77-ac6d-c576ac9d7f27"
