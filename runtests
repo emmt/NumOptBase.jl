@@ -1,10 +1,16 @@
-#! /usr/bin/bash
-exe=`realpath "$0"`
-dir=`dirname "$exe"`
-for ver in 1.{2..10}; do
-    echo "############## julia-$ver"
-    rm -f "$dir/Manifest.toml"
-    julia +$ver --project="$dir" --check-bounds=yes --depwarn=yes --color=yes \
-        -e 'using Pkg; Pkg.instantiate(); include("test/runtests.jl")'
-    rm -f "$dir/Manifest.toml"
+#! /bin/bash
+
+self=$(realpath "$0")
+dir=$(dirname "$self")
+pkg=$(basename "$dir" .jl)
+cd "$dir"
+for ver in 1.{2..11}; do
+    echo "########################################### Julia version $ver"
+    rm -f Manifest.toml
+    test -r ".Manifest-$ver.toml" && cp -pf ".Manifest-$ver.toml" Manifest.toml
+    julia +$ver --color=yes --check-bounds=yes --depwarn=yes --project -e "
+        using Pkg;
+        Pkg.resolve();
+        include(\"test/runtests.jl\");"
+    test -r Manifest.toml && mv -f Manifest.toml ".Manifest-$ver.toml"
 done
