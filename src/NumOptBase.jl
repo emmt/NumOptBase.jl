@@ -32,7 +32,7 @@ export
     project_variables!,
     changing_variables!
 
-using TypeUtils, Unitless
+using TypeUtils
 using ArrayTools: @assert_same_axes
 using StructuredArrays
 using StructuredArrays: value

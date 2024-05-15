@@ -11,7 +11,7 @@ using NumOptBase
 using NumOptBase: convert_multiplier, @vectorize
 using LoopVectorization
 using MayOptimize
-using Unitless
+using TypeUtils
 
 const use_avx   = isdefined(@__MODULE__, Symbol("@avx"))
 const use_turbo = isdefined(@__MODULE__, Symbol("@turbo"))
