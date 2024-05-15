@@ -3,6 +3,7 @@ module NumOptBaseCUDAExt
 if isdefined(Base, :get_extension)
     using StructuredArrays
     using CUDA
+    using CUDA: i32
     using NumOptBase
     using NumOptBase:
         CudaEngine,
@@ -31,6 +32,7 @@ if isdefined(Base, :get_extension)
 else
     using ..StructuredArrays
     using ..CUDA
+    using ..CUDA: i32
     using ..NumOptBase
     using ..NumOptBase:
         CudaEngine,
@@ -84,7 +86,7 @@ these thread-wise computations cannot be done by a regular function.
 macro gpu_range(A)
     A isa Symbol || error("expecting a symbolic name")
     esc(:(
-        #= first =# ((blockIdx().x - 1)*blockDim().x + threadIdx().x) :
+        #= first =# ((blockIdx().x - 1i32)*blockDim().x + threadIdx().x) :
         #= step  =# (blockDim().x*gridDim().x) :
         #= last  =# length($A)
     ))
