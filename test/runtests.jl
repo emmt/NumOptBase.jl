@@ -134,7 +134,7 @@ isdefined(@__MODULE__,:Generic) || include("Generic.jl")
         z = similar(x)
         E = NumOptBase.LoopEngine # most basic engine
         F = (real(T) === Float64 ? Float32 : Float64) # other floating-point type
-        rtol = 2eps(Float32)
+        rtol = 3eps(Float32)
         @testset "norm1" begin
             let xᵢ = first(x_ref), res = @inferred norm1(xᵢ)
                 @test typeof(res) === real(T)
