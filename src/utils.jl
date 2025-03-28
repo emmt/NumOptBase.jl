@@ -57,10 +57,9 @@ check_axes(name::AbstractString, arr::AbstractArray, ref::AbstractArray) =
     check_axes(name, arr, axes(ref))
 
 function check_axes(name::AbstractString, arr::AbstractArray,
-                    rngs::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
-    axes(arr) == rngs || throw(DimensionMismatch(pretty(
-        name, " has incompatible axes, got ", axes(arr), " instead of ", rngs)))
-    nothing
+                    J::Tuple{Vararg{AbstractUnitRange{<:Integer}}})
+    I = axes(arr)
+    I == J ? nothing : throw_invalid_axes(name, I, J)
 end
 
 function check_axes(x::AbstractArray;
@@ -75,6 +74,9 @@ function check_axes(x::AbstractArray;
     upper isa Nothing || check_axes("upper bound",       upper, rngs)
     nothing
 end
+
+@noinline throw_invalid_axes(name::AbstractString, I, J) = throw(DimensionMismatch(
+    pretty(name, " has incompatible axes, got ", I, " instead of ", J)))
 
 """
     NumOptBase.pretty_print(io::IO, args...)
@@ -109,7 +111,7 @@ pretty_print(io::IO, rng::OrdinalRange) = print(io, first(rng), ':', step(rng), 
 prints `args...` as a human readable string using [`NumOptBase.pretty_print`](@ref).
 
 """
-function pretty(xs...)
+@noinline function pretty(xs...)
     buf = IOBuffer()
     pretty_print(buf, xs...)
     return String(take!(buf))

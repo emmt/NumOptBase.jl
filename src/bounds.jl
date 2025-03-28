@@ -194,7 +194,10 @@ function project_variables!(::Type{E},
     # bounds, call an unsafe method with non-limiting bounds specified as
     # `nothing` so as to allow for dispatching on an optimized version based on
     # the bound types.
-    check_axes(x; dest=dst, lower=Ω.lower, upper=Ω.upper)
+    rngs = axes(x)
+    check_axes("destination array", dst, rngs)
+    check_axes("lower bound", Ω.lower, rngs)
+    check_axes("upper bound", Ω.upper, rngs)
     below, above = is_bounding(Ω)
     if below & above
         unsafe_project_variables!(E, dst, x, Ω.lower, Ω.upper)
@@ -255,7 +258,11 @@ function project_direction!(::Type{E},
                             d::AbstractArray{T,N},
                             Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
     # NOTE: See comments in `project_variables!`.
-    check_axes(x; dest=dst, dir=d, lower=Ω.lower, upper=Ω.upper)
+    rngs = axes(x)
+    check_axes("destination array", dst, rngs)
+    check_axes("search direction", d, rngs)
+    check_axes("lower bound", Ω.lower, rngs)
+    check_axes("upper bound", Ω.upper, rngs)
     below, above = is_bounding(Ω)
     if below & above
         unsafe_project_direction!(E, dst, x, pm, d, Ω.lower, Ω.upper)
@@ -308,7 +315,11 @@ function changing_variables!(::Type{E},
                              d::AbstractArray{T,N},
                              Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
     # NOTE: See comments in `project_variables!`.
-    check_axes(x; dest=dst, dir=d, lower=Ω.lower, upper=Ω.upper)
+    rngs = axes(x)
+    check_axes("destination array", dst, rngs)
+    check_axes("search direction", d, rngs)
+    check_axes("lower bound", Ω.lower, rngs)
+    check_axes("upper bound", Ω.upper, rngs)
     below, above = is_bounding(Ω)
     if below & above
         unsafe_changing_variables!(E, dst, x, pm, d, Ω.lower, Ω.upper)
