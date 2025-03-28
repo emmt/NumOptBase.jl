@@ -165,7 +165,7 @@ and [`NumOptBase.BoundedSet`](@ref).
 
 """
 is_bounding(lower, upper) = (is_bounding_below(lower), is_bounding_above(upper))
-is_bounding(Ω::BoundedSet) = is_bounding(Ω...)
+is_bounding(Ω::BoundedSet) = is_bounding(Ω.lower, Ω.upper)
 
 """
     project_variables!([E,] dst, x, Ω) -> dst
@@ -190,10 +190,9 @@ function project_variables!(::Type{E},
                             dst::AbstractArray{T,N},
                             x::AbstractArray{T,N},
                             Ω::BoundedSet{T,N}) where {E<:Engine,T,N}
-    # Check arguments and directly handle the unbounded case. If there are any
-    # bounds, call an unsafe method with non-limiting bounds specified as
-    # `nothing` so as to allow for dispatching on an optimized version based on
-    # the bound types.
+    # Check arguments and directly handle the unbounded case. If there are any bounds,
+    # call an unsafe method with non-limiting bounds specified as `nothing` so as to allow
+    # for dispatching on an optimized version based on the bound types.
     rngs = axes(x)
     check_axes("destination array", dst, rngs)
     check_axes("lower bound", Ω.lower, rngs)
@@ -218,13 +217,14 @@ end
 # vectorization and we very much rely on Julia optimizer to simplify expressions depending
 # on the type of the bounds. All these methods are supposed to be in-lined.
 
-project_variable(x, lower, upper) = project_above(project_below(x, lower), upper)
+@inline project_variable(x, lower, upper) = project_above(project_below(x, lower), upper)
 
-project_below(x, lower::Nothing) = x
-project_above(x, upper::Nothing) = x
+@inline project_below(x, lower::Nothing) = x
+@inline project_below(x::T, lower::T) where {T} = x < lower ? lower : x
 
-project_below(x::T, lower::T) where {T} = x < lower ? lower : x
-project_above(x::T, upper::T) where {T} = x > upper ? upper : x
+@inline project_above(x, upper::Nothing) = x
+@inline project_above(x::T, upper::T) where {T} = x > upper ? upper : x
+
 
 """
     project_direction!([E,] dst, x, ±, d, Ω) -> dst
@@ -277,7 +277,7 @@ function project_direction!(::Type{E},
 end
 
 # Scalar method to project a search direction (see notes about `project_variable`).
-project_direction(x, pm::PlusOrMinus, d, lower, upper) =
+@inline project_direction(x, pm::PlusOrMinus, d, lower, upper) =
     ifelse(can_vary(x, pm, d, lower, upper), d, zero(d))
 
 """
@@ -344,27 +344,32 @@ If no variables can vary in the direction `±d = -∇f(x)`, then the Karush-Kuhn
 (K.K.T.) conditions hold for the bound constrained minimization of `f(x)`.
 
 """
-can_vary(::Type{T}, x, pm::PlusOrMinus, d, lower, upper) where {T} =
+@inline can_vary(::Type{T}, x, pm::PlusOrMinus, d, lower, upper) where {T} =
     ifelse(can_vary(x, pm, d, lower, upper), oneunit(T), zero(T))
-can_vary(x, pm::PlusOrMinus, d, lower, upper) =
-    can_decrease(x, pm, d, lower) |
-    can_increase(x, pm, d, upper)
+@inline can_vary(x, pm::PlusOrMinus, d, lower, upper) =
+    can_decrease(x, pm, d, lower) | can_increase(x, pm, d, upper)
 
 # Yield whether `lower ≤ x ± α⋅d < x` is possible for some `α > 0`.
-can_decrease(x, pm::PlusOrMinus, d, lower) = is_negative(pm, d) & (x > lower)
-can_decrease(x, pm::PlusOrMinus, d, lower::Nothing) = is_negative(pm, d)
+@inline can_decrease(x, pm::PlusOrMinus, d, lower) =
+    is_negative(pm, d) & is_strictly_above(x, lower)
 
 # Yield whether `x < x ± α⋅d ≤ upper` is possible for some `α > 0`.
-can_increase(x, pm::PlusOrMinus, d, upper) = is_positive(pm, d) & (x < upper)
-can_increase(x, pm::PlusOrMinus, d, upper::Nothing) = is_positive(pm, d)
+@inline can_increase(x, pm::PlusOrMinus, d, upper) =
+    is_positive(pm, d) & is_strictly_below(x, upper)
 
-is_positive(         x) = x > zero(x)
-is_positive(::Plus,  x) = is_positive(x)
-is_positive(::Minus, x) = is_negative(x)
+@inline is_positive(         x) = x > zero(x)
+@inline is_positive(::Plus,  x) = is_positive(x)
+@inline is_positive(::Minus, x) = is_negative(x)
 
-is_negative(         x) = x < zero(x)
-is_negative(::Plus,  x) = is_negative(x)
-is_negative(::Minus, x) = is_positive(x)
+@inline is_negative(         x) = x < zero(x)
+@inline is_negative(::Plus,  x) = is_negative(x)
+@inline is_negative(::Minus, x) = is_positive(x)
+
+@inline is_strictly_above(x, lower) = x > lower
+@inline is_strictly_above(x, ::Nothing) = true
+
+@inline is_strictly_below(x, upper) = x < upper
+@inline is_strictly_below(x, ::Nothing) = true
 
 # Unsafe implementations for basic engines.
 for (optim, array, engine) in ((:none,      AbstractArray, LoopEngine),
