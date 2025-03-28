@@ -80,25 +80,23 @@ function Base.isempty(Ω::BoundedSet)
     end
 end
 
-# Test that the bounds give a feasible set. According to IEEE rules for
-# comparisons, it will be considered as empty if some bounds are NaN's.
+# Test that the bounds give a feasible set. According to IEEE rules for comparisons, it
+# will be considered as empty if some bounds are NaN's.
 feasible_bounds(lower::Nothing, upper::Nothing) = true
 feasible_bounds(lower::AbstractArray, upper::Nothing) = !any(isnan, lower)
 feasible_bounds(lower::Nothing, upper::AbstractArray) = !any(isnan, upper)
 feasible_bounds(lower::AbstractArray, upper::AbstractArray) =
     axes(lower) == axes(upper) && unsafe_feasible_bounds(lower, upper)
 
+# NOTE If one bound is a uniform array while the other is not a uniform array, make sure
+#      that the non-uniform array appears first. This is needed for `mapreduce` to work
+#      with GPU arrays.
 unsafe_feasible_bounds(lower::AbstractArray, upper::AbstractArray) =
     mapreduce(≤, &, lower, upper; init=true)
-
 unsafe_feasible_bounds(lower::AbstractArray, upper::AbstractUniformArray) =
     mapreduce(≤, &, lower, upper; init=true)
-
 unsafe_feasible_bounds(lower::AbstractUniformArray, upper::AbstractArray) =
-    # Swap operands so that the non-uniform array appears first. This is needed
-    # for `mapreduce` to work with GPU arrays.
     mapreduce(≥, &, upper, lower; init=true)
-
 unsafe_feasible_bounds(lower::AbstractUniformArray, upper::AbstractUniformArray) =
     value(lower) ≤ value(upper)
 
@@ -110,8 +108,8 @@ function Base.in(x::AbstractArray{T,N}, Ω::BoundedSet{T,N}) where {T,N}
     axes(u) == rngs || return false
     below, above = is_bounding(l, u)
     if below & above
-        # Test that the bounded set is feasible. According to IEEE rules for
-        # comparisons, it will be considered as empty if some bounds are NaN's.
+        # Test that the bounded set is feasible. According to IEEE rules for comparisons,
+        # it will be considered as empty if some bounds are NaN's.
         return mapreduce(in_bounds, &, x, l, u; init=true)
     elseif below
         return mapreduce(≥, &, x, l; init=true)
@@ -132,9 +130,9 @@ in_bounds(x::T, l::T, u::T) where {T} = ((x ≥ l)&(x ≤ u))
 """
     NumOptBase.is_bounding_below(l) -> bool
 
-yields whether lower bound set by `l` may be limiting. For efficiency, if `l`
-is multi-valued, it is considered as limiting even though all its values may
-all be equal to `-∞`.
+yields whether lower bound set by `l` may be limiting. For efficiency, if `l` is
+multi-valued, it is considered as limiting even though all its values may all be equal to
+`-∞`.
 
 """
 is_bounding_below(l::Nothing) = false
@@ -146,9 +144,9 @@ is_bounding_below(Ω::BoundedSet) = is_bounding_below(Ω.lower)
 """
     NumOptBase.is_bounding_above(u) -> bool
 
-yields whether upper bound set by `u` may be limiting. For efficiency, if `u`
-is multi-valued, it is considered as limiting even though all its values may
-all be equal to `+∞`.
+yields whether upper bound set by `u` may be limiting. For efficiency, if `u` is
+multi-valued, it is considered as limiting even though all its values may all be equal to
+`+∞`.
 
 """
 is_bounding_above(u::Nothing) = false
@@ -161,9 +159,9 @@ is_bounding_above(Ω::BoundedSet) = is_bounding_above(Ω.upper)
    NumOptBase.is_bounding(lower, upper) -> below, above
    NumOptBase.is_bounding(Ω::NumOptBase.BoundedSet) -> below, above
 
-yield whether bounds set by `lower` and `upper` or by `Ω` may be limiting below
-and/or above. See [`NumOptBase.is_bounding_below`](@ref),
-[`NumOptBase.is_bounding_above`](@ref), and [`NumOptBase.BoundedSet`](@ref).
+yield whether bounds set by `lower` and `upper` or by `Ω` may be limiting below and/or
+above. See [`NumOptBase.is_bounding_below`](@ref), [`NumOptBase.is_bounding_above`](@ref),
+and [`NumOptBase.BoundedSet`](@ref).
 
 """
 is_bounding(lower, upper) = (is_bounding_below(lower), is_bounding_above(upper))
@@ -176,8 +174,7 @@ overwrites destination `dst` with the *projected variables* such that:
 
     dst = P(x) = argmin_{y ∈ Ω} ‖y - x‖²
 
-where `P` is the projection onto the feasible set `Ω` and `x` are the
-variables.
+where `P` is the projection onto the feasible set `Ω` and `x` are the variables.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x, Ω...)` is assumed.
@@ -213,11 +210,10 @@ end
 
 # Scalar methods to project a variable.
 #
-# These methods are intended to be suitable for any type of arrays. We avoid
-# branching (hence use `ifelse`, `|`, or `&` instead of `?:`, `||`, or `&&`) to
-# not prevent loop vectorization and we very much rely on Julia optimizer to
-# simplify expressions depending on the type of the bounds. All these methods
-# are supposed to be in-lined.
+# These methods are intended to be suitable for any type of arrays. We avoid branching
+# (hence use `ifelse`, `|`, or `&` instead of `?:`, `||`, or `&&`) to not prevent loop
+# vectorization and we very much rely on Julia optimizer to simplify expressions depending
+# on the type of the bounds. All these methods are supposed to be in-lined.
 
 project_variable(x, lower, upper) = project_above(project_below(x, lower), upper)
 
@@ -230,13 +226,13 @@ project_above(x::T, upper::T) where {T} = x > upper ? upper : x
 """
     project_direction!([E,] dst, x, ±, d, Ω) -> dst
 
-overwrites destination `dst` with the *projected direction* such that, provided
-`x ∈ Ω`, then:
+overwrites destination `dst` with the *projected direction* such that, provided `x ∈ Ω`,
+then:
 
     ∀ α ∈ [0,ε], P(x ± α⋅d) = x ± α⋅dst
 
-for some `ε > 0` and where `P` is the projection onto the feasible set
-`Ω ⊆ ℝⁿ`, `x ∈ Ω` are the variables, and `d ∈ ℝⁿ` is a search direction.
+for some `ε > 0` and where `P` is the projection onto the feasible set `Ω ⊆ ℝⁿ`, `x ∈ Ω`
+are the variables, and `d ∈ ℝⁿ` is a search direction.
 
 For efficiency, it is assumed without checking that `x ∈ Ω` holds.
 
@@ -273,30 +269,28 @@ function project_direction!(::Type{E},
     return dst
 end
 
-# Scalar method to project a search direction (see notes about
-# `project_variable`).
+# Scalar method to project a search direction (see notes about `project_variable`).
 project_direction(x, pm::PlusOrMinus, d, lower, upper) =
     ifelse(can_vary(x, pm, d, lower, upper), d, zero(d))
 
 """
     changing_variables!([E,] dst, x, ±, d, Ω) -> dst
 
-overwrites destination `dst` with ones where variables in `x` will vary along
-direction `±d` within the bounds implemented by `Ω` and zeros elsewhere.
+overwrites destination `dst` with ones where variables in `x` will vary along direction
+`±d` within the bounds implemented by `Ω` and zeros elsewhere.
 
 For efficiency, it is assumed without checking that `x ∈ Ω` holds.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x, d, Ω...)` is assumed.
 
-Note that `x[i]` is non-changing if `d[i] = 0`. Hence, if `±d = -∇f(x)`, with
-`∇f(x)` the gradient of the objective function, the destination is set to zero
-everywhere the Karush-Kuhn-Tucker (K.K.T.) conditions are satisfied for the
-problem:
+Note that `x[i]` is considered as non-changing if `d[i] = 0`. Hence, if `±d = -∇f(x)`,
+with `∇f(x)` the gradient of the objective function, the destination is set to zero
+everywhere the Karush-Kuhn-Tucker (K.K.T.) conditions are satisfied for the problem:
 
     minₓ f(x) s.t. x ∈ Ω
 
-In other words, `all(izero, dst)` holds for (exact) convergence.
+In other words, `all(iszero, dst)` holds for (exact) convergence.
 
 """
 function changing_variables!(dst::AbstractArray{<:Real,N},
@@ -331,14 +325,12 @@ end
 """
     NumOptBase.can_vary([T=Bool,] x, ±, d, lower, upper)
 
-yields whether `x ± α⋅d != x` can hold within the `lower` and `upper` bounds
-and for some `α > 0`. Optional argument `T` is the type of the result:
-`oneunit(T)` if true, `zero(T)` otherwise. `lower` and/or `upper` may be
-`nothing` if there is no such bound.
+yields whether `x ± α⋅d != x` can hold within the `lower` and `upper` bounds and for some
+`α > 0`. Optional argument `T` is the type of the result: `oneunit(T)` if true, `zero(T)`
+otherwise. `lower` and/or `upper` may be `nothing` if there is no such bound.
 
-If no variables can vary in the direction `±d = -∇f(x)`, then the
-Karush-Kuhn-Tucker (K.K.T.) conditions hold for the bound constrained
-minimization of `f(x)`.
+If no variables can vary in the direction `±d = -∇f(x)`, then the Karush-Kuhn-Tucker
+(K.K.T.) conditions hold for the bound constrained minimization of `f(x)`.
 
 """
 can_vary(::Type{T}, x, pm::PlusOrMinus, d, lower, upper) where {T} =
@@ -347,11 +339,11 @@ can_vary(x, pm::PlusOrMinus, d, lower, upper) =
     can_decrease(x, pm, d, lower) |
     can_increase(x, pm, d, upper)
 
-# Yield whether `lower ≤ x ± α⋅d < x` is possible for `α > 0`.
+# Yield whether `lower ≤ x ± α⋅d < x` is possible for some `α > 0`.
 can_decrease(x, pm::PlusOrMinus, d, lower) = is_negative(pm, d) & (x > lower)
 can_decrease(x, pm::PlusOrMinus, d, lower::Nothing) = is_negative(pm, d)
 
-# Yield whether `x < x ± α⋅d ≤ upper` is possible for `α > 0`.
+# Yield whether `x < x ± α⋅d ≤ upper` is possible for some `α > 0`.
 can_increase(x, pm::PlusOrMinus, d, upper) = is_positive(pm, d) & (x < upper)
 can_increase(x, pm::PlusOrMinus, d, upper::Nothing) = is_positive(pm, d)
 
@@ -405,13 +397,13 @@ end
 """
     linesearch_limits([E,] x₀, ±, d, Ω) -> αₘᵢₙ, αₘₐₓ
 
-yields the limits `αₘᵢₙ` and `αₘₐₓ` for the step length `α ≥ 0` in a
-line-search where iterates `x` are given by:
+yields the limits `αₘᵢₙ` and `αₘₐₓ` for the step length `α ≥ 0` in a line-search where
+iterates `x` are given by:
 
       x = P(x₀ ± α⋅d)
 
-where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where `±`
-is either `+` or `-`.
+where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where `±` is
+either `+` or `-`.
 
 Optional argument `E` specifies which *engine* to use for the computations. If
 unspecified, `E = NumOptBase.engine(dst, x, d, Ω...)` is assumed.
@@ -424,15 +416,15 @@ Output value `αₘₐₓ` is the least nonnegative step length such that:
 
     α ≥ αₘₐₓ ≥ 0  ⟹  P(x₀ ± α⋅d) = P(x₀ ± αₘₐₓ⋅d)
 
-In other words, no bounds are overcome if `0 ≤ α ≤ αₘᵢₙ` and the projected
-variables are all the same for any `α` such that `α ≥ αₘₐₓ ≥ 0`.
+In other words, no bounds are overreached if `0 ≤ α ≤ αₘᵢₙ` and the projected variables
+are all the same for any `α` such that `α ≥ αₘₐₓ ≥ 0`.
 
 !!! warn
-    For efficiency, it is assumed without checking that `x₀` is feasible, that
-    is `x₀ ∈ Ω` holds.
+    For efficiency, it is assumed without checking that `x₀` is feasible, that is `x₀ ∈ Ω`
+    holds.
 
-See also [`linesearch_stepmin`](@ref) or [`linesearch_stepmax`](@ref) if only
-one of `αₘᵢₙ` or `αₘₐₓ` is needed.
+See also [`linesearch_stepmin`](@ref) or [`linesearch_stepmax`](@ref) if only one of
+`αₘᵢₙ` or `αₘₐₓ` is needed.
 
 """
 linesearch_limits
@@ -444,8 +436,8 @@ yields the greatest nonnegative step length `αₘᵢₙ` such that:
 
     0 ≤ α ≤ αₘᵢₙ  ⟹  P(x₀ ± α⋅d) = x₀ ± α⋅d
 
-where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where
-`±` is either `+` or `-`.
+where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where `±` is
+either `+` or `-`.
 
 See [`linesearch_limits`](@ref) for details.
 
@@ -459,8 +451,8 @@ yields the least nonnegative step length `αₘₐₓ` such that:
 
     α ≥ αₘₐₓ ≥ 0  ⟹  P(x₀ ± α⋅d) = P(x₀ ± αₘₐₓ⋅d)
 
-where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where
-`±` is either `+` or `-`.
+where `P(x)` denotes the orthogonal projection on the convex set `Ω` and where `±` is
+either `+` or `-`.
 
 See [`linesearch_limits`](@ref) for details.
 
@@ -571,8 +563,8 @@ bad_step(::Type{T}) where {T<:AbstractFloat} = T(NaN)
 """
     NumOptBase.step_choice(d, α₋, α₊, β = bad_step(T)) -> α
 
-chooses the step to a bound according to the sign of `d`. The result is `α₋` if
-`d < 0`, `α₊` if `d > 0`, `β` otherwise (`d` is zero or NaN).
+chooses the step to a bound according to the sign of `d`. The result is `α₋` if `d < 0`,
+`α₊` if `d > 0`, `β` otherwise (`d` is zero or NaN).
 
 """
 @inline step_choice(d::T, neg::T, pos::T, bad::T = bad_step(T)) where {T} =
@@ -612,9 +604,8 @@ step_to_upper_bound(::Minus) = step_from_upper_bound
     NumOptBase.step_to_bounds(x, d, l, u) -> α
     NumOptBase.step_to_bounds(x, +, d, l, u) -> α
 
-for the variable `x` such that `l ≤ x ≤ u` and search direction `d`, yield the
-nonnegative step `α` to one of the bounds `l` or `u` depending on the sign of
-`d`:
+for the variable `x` such that `l ≤ x ≤ u` and search direction `d`, yield the nonnegative
+step `α` to one of the bounds `l` or `u` depending on the sign of `d`:
 
 - if `d < 0`, `α ≥ 0` such that `x + α*d = l` is returned;
 - if `d > 0`, `α ≥ 0` such that `x + α*d = u` is returned;
@@ -628,9 +619,8 @@ nonnegative step `α` to one of the bounds `l` or `u` depending on the sign of
     NumOptBase.step_from_bounds(x, d, l, u) -> α
     NumOptBase.step_to_bounds(x, -, d, l, u) -> α
 
-for the variable `x` such that `l ≤ x ≤ u` and search direction `d`, yield the
-nonnegative step `α` from one of the bounds `l` or `u` depending on the sign of
-`d`:
+for the variable `x` such that `l ≤ x ≤ u` and search direction `d`, yield the nonnegative
+step `α` from one of the bounds `l` or `u` depending on the sign of `d`:
 
 - if `d < 0`, `α ≥ 0` such that `x - α*d = u` is returned;
 - if `d > 0`, `α ≥ 0` such that `x - α*d = l` is returned;
@@ -644,9 +634,8 @@ nonnegative step `α` from one of the bounds `l` or `u` depending on the sign of
     NumOptBase.step_to_lower_bound(x, d, l) -> α
     NumOptBase.step_to_lower_bound(x, +, d, l) -> α
 
-for the variable `x` such that `l ≤ x` and search direction `d`, yield `+Inf`,
-`NaN`, or the nonnegative step `α` to the lower bound `l` depending on the
-sign of `d`:
+for the variable `x` such that `l ≤ x` and search direction `d`, yield `+Inf`, `NaN`, or
+the nonnegative step `α` to the lower bound `l` depending on the sign of `d`:
 
 - if `d < 0`, `α ≥ 0` such that `x + α*d = l` is returned;
 - if `d > 0`, `α = +Inf` is returned;
@@ -660,9 +649,8 @@ sign of `d`:
     NumOptBase.step_from_lower_bound(x, d, l) -> α
     NumOptBase.step_to_lower_bound(x, -, d, l) -> α
 
-for the variable `x` such that `l ≤ x` and search direction `d`, yield `+Inf`,
-`NaN`, or the nonnegative step `α` from the lower bound `l` depending on the
-sign of `d`:
+for the variable `x` such that `l ≤ x` and search direction `d`, yield `+Inf`, `NaN`, or
+the nonnegative step `α` from the lower bound `l` depending on the sign of `d`:
 
 - if `d < 0`, `α = +Inf` is returned;
 - if `d > 0`, `α ≥ 0` such that `x - α*d = l` is returned;
@@ -676,9 +664,8 @@ sign of `d`:
     NumOptBase.step_to_upper_bound(x, d, u) -> α
     NumOptBase.step_to_upper_bound(x, +, d, u) -> α
 
-for the variable `x` such that `x ≤ u` and search direction `d`, yield `+Inf`,
-`NaN`, or the nonnegative step `α` to the upper bound `u` depending on the
-sign of `d`:
+for the variable `x` such that `x ≤ u` and search direction `d`, yield `+Inf`, `NaN`, or
+the nonnegative step `α` to the upper bound `u` depending on the sign of `d`:
 
 - if `d < 0`, `α = +Inf` is returned;
 - if `d > 0`, `α ≥ 0` such that `x + α*d = u` is returned;
@@ -692,9 +679,8 @@ sign of `d`:
     NumOptBase.step_from_upper_bound(x, d, u) -> α
     NumOptBase.step_to_upper_bound(x, -, d, u) -> α
 
-for the variable `x` such that `x ≤ u` and search direction `d`, yield `+Inf`,
-`NaN`, or the nonnegative step `α` from the upper bound `u` depending on the
-sign of `d`:
+for the variable `x` such that `x ≤ u` and search direction `d`, yield `+Inf`, `NaN`, or
+the nonnegative step `α` from the upper bound `u` depending on the sign of `d`:
 
 - if `d < 0`, `α ≥ 0` such that `x - α*d = u` is returned;
 - if `d > 0`, `α = +Inf` is returned;
@@ -715,9 +701,9 @@ step_to_upper_bound(x, ::Minus, d,    u) = step_from_upper_bound(x, d,    u)
 """
     NumOptBase.get_bound(B, i)
 
-yields the bound value at index `i` for object `B` implementing lower or
-upper bounds. This helper function is to simplify code, it yields `B[i]` if `B`
-is an array and `B` otherwise. Bound checking is propagated.
+yields the bound value at index `i` for object `B` implementing lower or upper bounds.
+This helper function is to simplify code, it yields `B[i]` if `B` is an array and `B`
+otherwise. Bound checking is propagated.
 
 """
 get_bound(B, i) = B

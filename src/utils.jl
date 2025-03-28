@@ -1,8 +1,8 @@
 """
     NumOptBase.engine(args...) -> E::Type{<:NumOptBase.Engine}
 
-yields the type of the implementation of numerical operations for array
-arguments `args...`.
+yields the type of the implementation of numerical operations for array arguments
+`args...`.
 
 """
 engine() = Engine
@@ -49,9 +49,8 @@ _vectorize(opt::Symbol, expr::Expr) =
     NumOptBase.check_axes(name, arr, ref)
     NumOptBase.check_axes(name, arr, rngs)
 
-throws a `DimensionMismatch` exception if the axes of array `arr` are not
-`rngs` or not the same as those of array `ref`. Argument `name` is used for the
-error message.
+throws a `DimensionMismatch` exception if the axes of array `arr` are not `rngs` or not
+the same as those of array `ref`. Argument `name` is used for the error message.
 
 """
 check_axes(name::AbstractString, arr::AbstractArray, ref::AbstractArray) =
@@ -80,9 +79,8 @@ end
 """
     NumOptBase.pretty_print(io::IO, args...)
 
-prints `args...` to `io` in a pretty form that is useful for error messages.
-This method may be specialized on the type of each of `args...`. The default is
-to call `print`.
+prints `args...` to `io` in a pretty form that is useful for error messages. This method
+may be specialized on the type of each of `args...`. The default is to call `print`.
 
 """
 function pretty_print(io::IO, xs...)
@@ -120,17 +118,17 @@ end
 """
     NumOptBase.choice(t1::Bool, x1::T, t2::Bool, x2::T, ..., tn::Bool, xn::T, y::T)
 
-yields `x1` if `t1` is true, otherwise `x2` if `t2` is true, and so on, and
-finally `y` if none of the test values is true. This is equivalent to:
+yields `x1` if `t1` is true, otherwise `x2` if `t2` is true, and so on, and finally `y` if
+none of the test values is true. This is equivalent to:
 
     t1 ? x1 :
     t2 ? x2 :
     ...
     tn ? xn : y
 
-except that all expressions are computed. This is a generalization of the
-`ifelse` function. The reason to use such a function rather than the `? :` syntax
-is the possibility to eliminate branches in optimized code.
+except that all expressions are computed. This is a generalization of the `ifelse`
+function. The reason to use such a function rather than the `? :` syntax is the
+possibility to eliminate branches in optimized code.
 
 """
 @inline choice(t1::Bool, x1::T, y::T) where {T} =
@@ -166,8 +164,8 @@ flatten(x::AbstractArray) = reshape(x, length(x))
 """
     NumOptBase.convert_multiplier(α, A)
 
-converts scalar number `α` to a floating-point type whose numerical precision
-is the same as that of the elements of abstract array `A`.
+converts scalar number `α` to a floating-point type whose numerical precision is the same
+as that of the elements of abstract array `A`.
 
 """
 convert_multiplier(α::Number, A::AbstractArray) = convert_floating_point_type(eltype(A), α)
@@ -188,9 +186,9 @@ yields a callable object such that:
 
     f(xᵢ) -> α*xᵢ
 
-with `α` converted to a floating-point type suitable for multiplication by the
-elements of `x` (see [`NumOptBase.convert_multiplier`](@ref)). The object `f`
-may be used with [`NumOptBase.unsafe_map!`](@ref).
+with `α` converted to a floating-point type suitable for multiplication by the elements of
+`x` (see [`NumOptBase.convert_multiplier`](@ref)). The object `f` may be used with
+[`NumOptBase.unsafe_map!`](@ref).
 
 """
 struct αx{A} <: Function
@@ -209,9 +207,9 @@ yields a callable object such that:
 
     f(xᵢ, yᵢ) -> α*xᵢ + yᵢ
 
-with `α` converted to a floating-point type suitable for multiplication by the
-elements of `x` (see [`NumOptBase.convert_multiplier`](@ref)). The object `f`
-may be used with [`NumOptBase.unsafe_map!`](@ref).
+with `α` converted to a floating-point type suitable for multiplication by the elements of
+`x` (see [`NumOptBase.convert_multiplier`](@ref)). The object `f` may be used with
+[`NumOptBase.unsafe_map!`](@ref).
 
 """
 struct αxpy{A} <: Function
@@ -230,9 +228,9 @@ yields a callable object such that:
 
     f(xᵢ, yᵢ) -> α*xᵢ - yᵢ
 
-with `α` converted to a floating-point type suitable for multiplication by the
-elements of `x` (see [`NumOptBase.convert_multiplier`](@ref)). The object `f`
-may be used with [`NumOptBase.unsafe_map!`](@ref).
+with `α` converted to a floating-point type suitable for multiplication by the elements of
+`x` (see [`NumOptBase.convert_multiplier`](@ref)). The object `f` may be used with
+[`NumOptBase.unsafe_map!`](@ref).
 
 """
 struct αxmy{A} <: Function
@@ -251,10 +249,9 @@ yields a callable object such that:
 
     f(xᵢ, yᵢ) -> α*xᵢ + β*yᵢ
 
-with `α` and `β` converted to a floating-point type suitable for respective
-multiplication by the elements of `x` and `y` (see
-[`NumOptBase.convert_multiplier`](@ref)). The object `f` may be used with
-[`NumOptBase.unsafe_map!`](@ref).
+with `α` and `β` converted to a floating-point type suitable for respective multiplication
+by the elements of `x` and `y` (see [`NumOptBase.convert_multiplier`](@ref)). The object
+`f` may be used with [`NumOptBase.unsafe_map!`](@ref).
 
 """
 struct αxpβy{A,B} <: Function
@@ -273,8 +270,8 @@ overwrites `dst` with the result of applying `f` element-wise to `args...`.
 This method may be extended for specific array types. By default, it uses SIMD
 vectorization for strided arrays and calls `map!` for other arrays.
 
-This method is *unsafe* because it assumes without checking that `dst` and all
-`args...` have the same axes.
+This method is *unsafe* because it assumes without checking that `dst` and all `args...`
+have the same axes.
 
 Argument `E` specifies which *engine* to be use for the computations.
 
