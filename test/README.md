@@ -110,6 +110,49 @@ are however some good news:
   ```
 
 
+## Favoring loop vectorization
+
+Rules of thumb for efficient code:
+
+- For loop vectorization to be *effective*:
+
+  - Use macros `@inbounds`, `@inbounds @fastmath`, `@inbounds @simd`, `@inbounds @fastmath
+    @simd`, or `@turbo` (if the mapped function `can_turbo`) in front of `for` loops.
+    However see above caveats for `@fatsmath`.
+
+  - Write simple loops with linear (or Cartesian) indices and constant bounds and
+    increment. For multiple loop levels, `@turbo` can sit at the outer `for` statement,
+    `@simd` must sit at the innermost one.
+
+  - Avoid gathering and scattering operations.
+
+  - There must not be any `continue` or `break` statements in the loop.
+
+  - Branching must be avoided, yet `ifelse` (or similar) can be called which implies that
+    all possible expressions must be explicitly computed. For example, do not write
+    ```julia
+    s = d[i] > zero(d[i]) ? (hi[i] - x[i])/d[i] : (lo[i] - x[i])/d[i]
+    ```
+    but rather:
+    ```julia
+    s = (ifelse(d[i] > zero(d[i]), hi[i], lo[i]) - x[i])/d[i]
+    ```
+
+  - The number of elements `n` must be large enough and the elements must be stored
+    contiguously (e.g., `DenseArray`).
+
+- For loop vectorization to be **efficient**, the **reduction** part, if any, must be a
+  **simple operation** (e.g., equivalent to `+`, `*`, `min`, or `max`). For GPU arrays, it
+  is mandatory that the reduction operation be supported.
+
+Example code in [`test/steplimits.jl`](./steplimits.jl) is a comparison of different
+implementations of the method to compute the limits of the step length for a line-search
+method in a bound constrained optimization problem. The challenge and objective were to
+have a method that is as fast as possible (thanks to SIMD instructions and `@fastmath`)
+while yielding correct results (in spite of `@fastmath` violating IEEE rules) and yet
+being simple and mostly suitable for `mapreduce` with GPU arrays.
+
+
 ## Links
 
 - The Julia code for `@fastmath` is in
